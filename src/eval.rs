@@ -140,17 +140,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "lambda" => eval_function_definition(&list),
             _ => eval_function_call(&s, &list, env),
         },
-        _ => {
-            let mut new_list = Vec::new();
-            for obj in list {
-                let result = eval_obj(obj, env)?;
-                match result {
-                    Object::Void => {}
-                    _ => new_list.push(result),
-                }
-            }
-            Ok(Object::List(new_list))
-        }
+        _ => Err(format!("Invalid list head {:?}", head)) 
     }
 }
 

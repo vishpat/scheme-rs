@@ -37,7 +37,7 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
         });
     }
 
-    let mut list: Vec<Object> = Vec::new();
+    let mut plist: Vec<Object> = Vec::new();
     while !tokens.is_empty() {
         let token = tokens.pop();
         if token == None {
@@ -46,6 +46,7 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
             });
         }
         let t = token.unwrap();
+        let mut list: Vec<Object> = Vec::new();
         match t {
             Token::Integer(n) => list.push(Object::Integer(n)),
             Token::Symbol(s) => list.push(Object::Symbol(s)),
@@ -55,12 +56,12 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
                 list.push(sub_list);
             }
             Token::RParen => {
-                return Ok(Object::List(list));
+                plist.push(Object::List(list));
             }
         }
     }
 
-    Ok(Object::List(list))
+    Ok(Object::List(plist))
 }
 
 #[cfg(test)]
@@ -82,11 +83,11 @@ mod tests {
 
     #[test]
     fn test_area_of_a_circle() {
-        let program = "(
+        let program = "
                          (define r 10)
                          (define pi 314)
                          (* pi (* r r))
-                       )";
+                       ";
         let list = parse(program).unwrap();
         assert_eq!(
             list,
