@@ -70,7 +70,7 @@ fn eval_quote(list: &Vec<Object>) -> Result<Object, String> {
         return Err(format!("Invalid number of arguments for quote statement"));
     }
 
-   return Ok(list[1].clone()); 
+    return Ok(list[1].clone());
 }
 
 fn eval_function_definition(list: &Vec<Object>) -> Result<Object, String> {
@@ -95,11 +95,7 @@ fn eval_function_definition(list: &Vec<Object>) -> Result<Object, String> {
     Ok(Object::Lambda(params, body))
 }
 
-fn eval_function_call(
-    s: &str,
-    list: &Vec<Object>,
-    env: &mut Env,
-) -> Result<Object, String> {
+fn eval_function_call(s: &str, list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     let lamdba = env.get(s);
     if lamdba.is_none() {
         return Err(format!("Unbound symbol: {}", s));
@@ -140,7 +136,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "lambda" => eval_function_definition(&list),
             _ => eval_function_call(&s, &list, env),
         },
-        _ => Err(format!("Invalid list head {:?}", head)) 
+        _ => Err(format!("Invalid list head {:?}", head)),
     }
 }
 
@@ -160,7 +156,7 @@ pub fn eval(program: &str, env: &mut Env) -> Result<Object, String> {
     if parsed_list.is_err() {
         return Err(format!("{}", parsed_list.err().unwrap()));
     }
-    eval_obj(&parsed_list.unwrap(), env)
+
 }
 
 #[cfg(test)]
@@ -261,8 +257,12 @@ mod tests {
         let result = eval(program, &mut env).unwrap();
         assert_eq!(
             result,
-            Object::List(vec![Object::Integer(1), Object::Integer(2), Object::Integer(3)])
-        ); 
+            Object::List(vec![
+                Object::Integer(1),
+                Object::Integer(2),
+                Object::Integer(3)
+            ])
+        );
     }
 
     #[test]
@@ -273,10 +273,6 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(
-            result,
-            Object::Symbol("a".to_string())
-        ); 
+        assert_eq!(result, Object::Symbol("a".to_string()));
     }
-
 }

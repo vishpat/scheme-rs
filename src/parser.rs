@@ -25,6 +25,8 @@ pub fn parse(program: &str) -> Result<Object, ParseError> {
     }
 
     let mut tokens = token_result.unwrap().into_iter().rev().collect::<Vec<_>>();
+    tokens.insert(0, Token::RParen);
+    tokens.push(Token::LParen);
     let parsed_list = parse_list(&mut tokens)?;
     Ok(parsed_list)
 }
@@ -37,7 +39,7 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
         });
     }
 
-    let mut plist: Vec<Object> = Vec::new();
+    let mut list: Vec<Object> = Vec::new();
     while !tokens.is_empty() {
         let token = tokens.pop();
         if token == None {
@@ -46,7 +48,6 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
             });
         }
         let t = token.unwrap();
-        let mut list: Vec<Object> = Vec::new();
         match t {
             Token::Integer(n) => list.push(Object::Integer(n)),
             Token::Symbol(s) => list.push(Object::Symbol(s)),
@@ -56,12 +57,12 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
                 list.push(sub_list);
             }
             Token::RParen => {
-                plist.push(Object::List(list));
+                return Ok(Object::List(list));
             }
         }
     }
 
-    Ok(Object::List(plist))
+    Ok(Object::List(list))
 }
 
 #[cfg(test)]
@@ -73,11 +74,11 @@ mod tests {
         let list = parse("(+ 1 2)").unwrap();
         assert_eq!(
             list,
-            Object::List(vec![
+            Object::List(vec![Object::List(vec![
                 Object::Symbol("+".to_string()),
                 Object::Integer(1),
                 Object::Integer(2),
-            ])
+            ])])
         );
     }
 
