@@ -157,6 +157,20 @@ pub fn eval(program: &str, env: &mut Env) -> Result<Object, String> {
         return Err(format!("{}", parsed_list.err().unwrap()));
     }
 
+    match parsed_list.unwrap() {
+        Object::List(list) => {
+            let mut r = Object::Void;
+            for l in list {
+                let result = eval_obj(&l, env);
+                if result.is_err() {
+                    return Err(format!("{}", result.err().unwrap()));
+                }
+                r = result.unwrap();
+            }
+            Ok(r)
+        }
+        _ => return Err(format!("Invalid program")),
+    }
 }
 
 #[cfg(test)]
@@ -173,78 +187,79 @@ mod tests {
     #[test]
     fn test_area_of_a_circle() {
         let mut env = Box::new(Env::new());
-        let program = "(
+        let program = "
                         (define r 10)
                         (define pi 314)
                         (* pi (* r r))
-                      )";
+                      ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(
-            result,
-            Object::List(vec![Object::Integer((314 * 10 * 10) as i64)])
-        );
+        assert_eq!(result, Object::Integer((314 * 10 * 10) as i64));
     }
 
     #[test]
     fn test_sqr_function() {
         let mut env = Box::new(Env::new());
-        let program = "(
-                        (define sqr (lambda (r) (* r r))) 
+        let program = "
+                        (define sqr 
+                            (lambda (r) (* r r))) 
                         (sqr 10)
-                       )";
+                       ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(
-            result,
-            Object::List(vec![Object::Integer((10 * 10) as i64)])
-        );
+        assert_eq!(result, Object::Integer((10 * 10) as i64));
     }
 
     #[test]
     fn test_fibonaci() {
         let mut env = Box::new(Env::new());
         let program = "
-            (
-                (define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))
+            
+                (define fib 
+                    (lambda (n) 
+                        (if (< n 2) 
+                        1 (+ (fib (- n 1)) (fib (- n 2))))))
                 (fib 10)
-            )
+            
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::List(vec![Object::Integer((89) as i64)]));
+        assert_eq!(result, Object::Integer((89) as i64));
     }
 
     #[test]
     fn test_factorial() {
         let mut env = Box::new(Env::new());
         let program = "
-            (
-                (define fact (lambda (n) (if (< n 1) 1 (* n (fact (- n 1))))))
+            
+                (define fact 
+                    (lambda (n) 
+                        (if (< n 1) 
+                            1 
+                            (* n (fact (- n 1))))))
                 (fact 5)
-            )
+            
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::List(vec![Object::Integer((120) as i64)]));
+        assert_eq!(result, Object::Integer((120) as i64));
     }
 
     #[test]
     fn test_circle_area_function() {
         let mut env = Box::new(Env::new());
         let program = "
-            (
+            
                 (define pi 314)
                 (define r 10)
-                (define sqr (lambda (r) (* r r)))
-                (define area (lambda (r) (* pi (sqr r))))
+                (define sqr 
+                    (lambda (r) (* r r)))
+                (define area 
+                    (lambda (r) (* pi (sqr r))))
                 (area r)
-            )
+            
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(
-            result,
-            Object::List(vec![Object::Integer((314 * 10 * 10) as i64)])
-        );
+        assert_eq!(result, Object::Integer((314 * 10 * 10) as i64));
     }
 
     #[test]
