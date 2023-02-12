@@ -65,6 +65,14 @@ fn eval_if(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     }
 }
 
+fn eval_quote(list: &Vec<Object>) -> Result<Object, String> {
+    if list.len() != 2 {
+        return Err(format!("Invalid number of arguments for quote statement"));
+    }
+
+   return Ok(list[1].clone()); 
+}
+
 fn eval_function_definition(list: &Vec<Object>) -> Result<Object, String> {
     let params = match &list[1] {
         Object::List(list) => {
@@ -126,6 +134,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" => {
                 return eval_binary_op(&list, env);
             }
+            "quote" => eval_quote(&list),
             "define" => eval_define(&list, env),
             "if" => eval_if(&list, env),
             "lambda" => eval_function_definition(&list),
@@ -251,4 +260,33 @@ mod tests {
             Object::List(vec![Object::Integer((314 * 10 * 10) as i64)])
         );
     }
+
+    #[test]
+    fn test_quote_1() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (quote (1 2 3))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(
+            result,
+            Object::List(vec![Object::Integer(1), Object::Integer(2), Object::Integer(3)])
+        ); 
+    }
+
+    #[test]
+    fn test_quote_2() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (quote a)
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(
+            result,
+            Object::Symbol("a".to_string())
+        ); 
+    }
+
 }
