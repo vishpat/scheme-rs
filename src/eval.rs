@@ -65,6 +65,14 @@ fn eval_if(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     }
 }
 
+fn eval_quote(list: &Vec<Object>) -> Result<Object, String> {
+    if list.len() != 2 {
+        return Err(format!("Invalid number of arguments for quote statement"));
+    }
+
+    return Ok(list[1].clone());
+}
+
 fn eval_function_definition(list: &Vec<Object>) -> Result<Object, String> {
     let params = match &list[1] {
         Object::List(list) => {
@@ -87,11 +95,7 @@ fn eval_function_definition(list: &Vec<Object>) -> Result<Object, String> {
     Ok(Object::Lambda(params, body))
 }
 
-fn eval_function_call(
-    s: &str,
-    list: &Vec<Object>,
-    env: &mut Env,
-) -> Result<Object, String> {
+fn eval_function_call(s: &str, list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     let lamdba = env.get(s);
     if lamdba.is_none() {
         return Err(format!("Unbound symbol: {}", s));
@@ -126,22 +130,13 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" => {
                 return eval_binary_op(&list, env);
             }
+            "quote" => eval_quote(&list),
             "define" => eval_define(&list, env),
             "if" => eval_if(&list, env),
             "lambda" => eval_function_definition(&list),
             _ => eval_function_call(&s, &list, env),
         },
-        _ => {
-            let mut new_list = Vec::new();
-            for obj in list {
-                let result = eval_obj(obj, env)?;
-                match result {
-                    Object::Void => {}
-                    _ => new_list.push(result),
-                }
-            }
-            Ok(Object::List(new_list))
-        }
+        _ => Err(format!("Invalid list head {:?}", head)),
     }
 }
 
@@ -161,7 +156,21 @@ pub fn eval(program: &str, env: &mut Env) -> Result<Object, String> {
     if parsed_list.is_err() {
         return Err(format!("{}", parsed_list.err().unwrap()));
     }
-    eval_obj(&parsed_list.unwrap(), env)
+
+    match parsed_list.unwrap() {
+        Object::List(list) => {
+            let mut r = Object::Void;
+            for l in list {
+                let result = eval_obj(&l, env);
+                if result.is_err() {
+                    return Err(format!("{}", result.err().unwrap()));
+                }
+                r = result.unwrap();
+            }
+            Ok(r)
+        }
+        _ => return Err(format!("Invalid program")),
+    }
 }
 
 #[cfg(test)]
@@ -178,77 +187,107 @@ mod tests {
     #[test]
     fn test_area_of_a_circle() {
         let mut env = Box::new(Env::new());
-        let program = "(
+        let program = "
                         (define r 10)
                         (define pi 314)
                         (* pi (* r r))
-                      )";
+                      ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(
-            result,
-            Object::List(vec![Object::Integer((314 * 10 * 10) as i64)])
-        );
+        assert_eq!(result, Object::Integer((314 * 10 * 10) as i64));
     }
 
     #[test]
     fn test_sqr_function() {
         let mut env = Box::new(Env::new());
-        let program = "(
-                        (define sqr (lambda (r) (* r r))) 
+        let program = "
+                        (define sqr 
+                            (lambda (r) (* r r))) 
                         (sqr 10)
-                       )";
+                       ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(
-            result,
-            Object::List(vec![Object::Integer((10 * 10) as i64)])
-        );
+        assert_eq!(result, Object::Integer((10 * 10) as i64));
     }
 
     #[test]
     fn test_fibonaci() {
         let mut env = Box::new(Env::new());
         let program = "
-            (
-                (define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))
+            
+                (define fib 
+                    (lambda (n) 
+                        (if (< n 2) 
+                        1 (+ (fib (- n 1)) (fib (- n 2))))))
                 (fib 10)
-            )
+            
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::List(vec![Object::Integer((89) as i64)]));
+        assert_eq!(result, Object::Integer((89) as i64));
     }
 
     #[test]
     fn test_factorial() {
         let mut env = Box::new(Env::new());
         let program = "
-            (
-                (define fact (lambda (n) (if (< n 1) 1 (* n (fact (- n 1))))))
+            
+                (define fact 
+                    (lambda (n) 
+                        (if (< n 1) 
+                            1 
+                            (* n (fact (- n 1))))))
                 (fact 5)
-            )
+            
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::List(vec![Object::Integer((120) as i64)]));
+        assert_eq!(result, Object::Integer((120) as i64));
     }
 
     #[test]
     fn test_circle_area_function() {
         let mut env = Box::new(Env::new());
         let program = "
-            (
+            
                 (define pi 314)
                 (define r 10)
-                (define sqr (lambda (r) (* r r)))
-                (define area (lambda (r) (* pi (sqr r))))
+                (define sqr 
+                    (lambda (r) (* r r)))
+                (define area 
+                    (lambda (r) (* pi (sqr r))))
                 (area r)
-            )
+            
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer((314 * 10 * 10) as i64));
+    }
+
+    #[test]
+    fn test_quote_1() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (quote (1 2 3))
         ";
 
         let result = eval(program, &mut env).unwrap();
         assert_eq!(
             result,
-            Object::List(vec![Object::Integer((314 * 10 * 10) as i64)])
+            Object::List(vec![
+                Object::Integer(1),
+                Object::Integer(2),
+                Object::Integer(3)
+            ])
         );
+    }
+
+    #[test]
+    fn test_quote_2() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (quote a)
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Symbol("a".to_string()));
     }
 }

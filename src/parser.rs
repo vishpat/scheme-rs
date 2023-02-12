@@ -25,6 +25,8 @@ pub fn parse(program: &str) -> Result<Object, ParseError> {
     }
 
     let mut tokens = token_result.unwrap().into_iter().rev().collect::<Vec<_>>();
+    tokens.insert(0, Token::RParen);
+    tokens.push(Token::LParen);
     let parsed_list = parse_list(&mut tokens)?;
     Ok(parsed_list)
 }
@@ -72,21 +74,21 @@ mod tests {
         let list = parse("(+ 1 2)").unwrap();
         assert_eq!(
             list,
-            Object::List(vec![
+            Object::List(vec![Object::List(vec![
                 Object::Symbol("+".to_string()),
                 Object::Integer(1),
                 Object::Integer(2),
-            ])
+            ])])
         );
     }
 
     #[test]
     fn test_area_of_a_circle() {
-        let program = "(
+        let program = "
                          (define r 10)
                          (define pi 314)
                          (* pi (* r r))
-                       )";
+                       ";
         let list = parse(program).unwrap();
         assert_eq!(
             list,
