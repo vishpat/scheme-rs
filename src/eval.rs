@@ -116,7 +116,12 @@ fn eval_function_call(s: &str, list: &Vec<Object>, env: &mut Env) -> Result<Obje
 }
 
 fn eval_symbol(s: &str, env: &mut Env) -> Result<Object, String> {
-    let val = env.get(s);
+    let val = match s {
+        "#t" | "else" => return Ok(Object::Bool(true)),
+        "#f" => return Ok(Object::Bool(false)),
+        _ => env.get(s),
+    };
+
     if val.is_none() {
         return Err(format!("Unbound symbol: {}", s));
     }
@@ -133,7 +138,35 @@ fn eval_display(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     Ok(Object::Void)
 }
 
+fn eval_cond(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+    if list.len() < 2 {
+        return Err(format!("Invalid number of arguments for cond"));
+    }
+
+    for l in list[1..].iter() {
+        match l {
+            Object::List(list) => {
+                if list.len() != 2 {
+                    return Err(format!("Invalid cond clause {:?}", list));
+                }
+                let cond = eval_obj(&list[0], env)?;
+                let cond_val = match cond {
+                    Object::Bool(b) => b,
+                    _ => return Err(format!("Condition must be a boolean {:?}", cond)),
+                };
+                if cond_val == true {
+                    return eval_obj(&list[1], env);
+                }
+            }
+            _ => return Err(format!("Invalid cond clause")),
+        }
+    }
+
+    return Err(format!("No cond clause matched"));
+}
+
 fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+    // Empty list
     if list.len() == 0 {
         return Ok(Object::Void);
     }
@@ -149,6 +182,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "if" => eval_if(&list, env),
             "lambda" => eval_function_definition(&list),
             "display" => eval_display(&list, env),
+            "cond" => eval_cond(&list, env),
             _ => eval_function_call(&s, &list, env),
         },
         _ => Err(format!("Invalid list head {:?}", head)),
@@ -304,5 +338,44 @@ mod tests {
 
         let result = eval(program, &mut env).unwrap();
         assert_eq!(result, Object::Symbol("a".to_string()));
+    }
+
+    #[test]
+    fn test_cond_1() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (cond ((> 2 1) 5) 
+                  ((< 2 1) 10) 
+                  (else 15))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(5));
+    }
+
+    #[test]
+    fn test_cond_2() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (cond ((> 1 2) 5) 
+                  ((< 1 2) 10) 
+                  (else 15))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(10));
+    }
+
+    #[test]
+    fn test_cond_3() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (cond ((> 1 2) 5) 
+                  ((< 1 0) 10) 
+                  (else 15))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(15));
     }
 }
