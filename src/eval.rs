@@ -123,7 +123,21 @@ fn eval_symbol(s: &str, env: &mut Env) -> Result<Object, String> {
     Ok(val.unwrap().clone())
 }
 
+fn eval_display(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+    if list.len() != 2 {
+        return Err(format!("Invalid number of arguments for display"));
+    }
+
+    let sym = eval_obj(&list[1].clone(), env)?;
+    println!("{:?}", sym);
+    Ok(Object::Void)
+}
+
 fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+    if list.len() == 0 {
+        return Ok(Object::Void);
+    }
+
     let head = &list[0];
     match head {
         Object::Symbol(s) => match s.as_str() {
@@ -134,6 +148,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "define" => eval_define(&list, env),
             "if" => eval_if(&list, env),
             "lambda" => eval_function_definition(&list),
+            "display" => eval_display(&list, env),
             _ => eval_function_call(&s, &list, env),
         },
         _ => Err(format!("Invalid list head {:?}", head)),
