@@ -15,6 +15,16 @@ impl<'a> Env<'a> {
         }
     }
 
+    pub fn update(&mut self, data: Self) {
+        self.vars.extend(
+            data
+                .vars
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone())),
+        );
+    }
+
+
     pub fn extend(parent: &'a Self) -> Env<'a> {
         Env {
             vars: HashMap::new(),

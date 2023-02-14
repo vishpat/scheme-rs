@@ -78,6 +78,15 @@ fn eval_quote(list: &Vec<Object>) -> Result<Object, String> {
     Ok(list[1].clone())
 }
 
+fn eval_list_keyword(list: &[Object], env: &mut Env) -> Result<Object, String> {
+    let mut new_list = Vec::new();
+
+    for obj in list[1..].iter() {
+        new_list.push(eval_obj(obj, env)?);
+    }
+    Ok(Object::List(new_list))
+}
+
 fn eval_function_definition(list: &[Object]) -> Result<Object, String> {
     let params = match &list[1] {
         Object::List(list) => {
@@ -98,6 +107,48 @@ fn eval_function_definition(list: &[Object]) -> Result<Object, String> {
         _ => return Err(format!("Invalid lambda {:?}", list[2].clone())),
     };
     Ok(Object::Lambda(params, body))
+}
+
+fn eval_let(list: &[Object], env: &mut Env) -> Result<Object, String> {
+    let mut result = Object::Void;
+    let mut bindings_env = Env::new();
+
+    if list.len() < 3 {
+        return Err("Invalid number of arguments for let".to_string());
+    }
+
+    let bindings = match list[1].clone() {
+        Object::List(bindings) => bindings,
+        _ => return Err("Invalid bindings for let".to_string()),
+    };
+
+    for binding in bindings.iter() {
+        let binding = match binding {
+            Object::List(binding) => binding,
+            _ => return Err("Invalid binding for let".to_string()),
+        };
+
+        if binding.len() != 2 {
+            return Err("Invalid binding for let".to_string());
+        }
+
+        let name = match binding[0].clone() {
+            Object::Symbol(name) => name,
+            _ => return Err("Invalid binding for let".to_string()),
+        };
+
+        let value = eval_obj(&binding[1], env)?;
+        bindings_env.set(name.as_str(), value);
+    }
+
+    let mut new_env = Env::extend(env);
+    new_env.update(bindings_env);
+
+    for obj in list[2..].iter() {
+        result = eval_obj(obj, &mut new_env)?;
+    }
+    Ok(result)
+
 }
 
 fn eval_function_call(s: &str, list: &[Object], env: &mut Env) -> Result<Object, String> {
@@ -210,11 +261,14 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "and" => eval_logical_operation(LogicalOp::And, list, env),
             "or" => eval_logical_operation(LogicalOp::Or, list, env),
             "quote" => eval_quote(list),
+            "list" => eval_list_keyword(list, env),
             "define" => eval_define(list, env),
             "if" => eval_if(list, env),
             "lambda" => eval_function_definition(list),
             "display" => eval_display(list, env),
             "cond" => eval_cond(list, env),
+            "let" => eval_let(list, env),
+            "eval" => eval_obj(&list[1], env),
             _ => eval_function_call(s, list, env),
         },
         _ => Err(format!("Invalid list head {:?}", head)),
@@ -453,5 +507,50 @@ mod tests {
 
         let result = eval(program, &mut env).unwrap();
         assert_eq!(result, Object::Bool(true));
+    }
+
+    #[test]
+    fn test_let_1() {
+        let mut env = Env::new();
+        let program = "
+            (let ((a 10) (b 20))
+                (list a b)
+            )
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(
+            result,
+            Object::List(vec![Object::Integer(10), Object::Integer(20),])
+        );
+    }
+
+    #[test]
+    fn test_let_2() {
+        let mut env = Env::new();
+        let program = "
+            (define a 100)
+            (let ((a 10) (b 20))
+                (list a b)
+            )
+            (eval a)
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(100));
+    }
+
+    #[test]
+    fn test_let_3() {
+        let mut env = Env::new();
+        let program = "
+            (let ((x 2) (y 3))
+                (let ((x 7)
+                      (z (+ x y)))
+                    (* z x))) 
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(35));
     }
 }
