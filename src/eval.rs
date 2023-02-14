@@ -152,7 +152,10 @@ fn eval_logical_operation(
         return Err("Invalid number of arguments for logical operation".to_string());
     }
 
-    let mut result = true;
+    let mut result = match op {
+        LogicalOp::And => true,
+        LogicalOp::Or => false,
+    };
     for l in list[1..].iter() {
         let obj = eval_obj(l, env)?;
         let val = match obj {
@@ -400,5 +403,55 @@ mod tests {
 
         let result = eval(program, &mut env).unwrap();
         assert_eq!(result, Object::Integer(15));
+    }
+
+    #[test]
+    fn test_and_1() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (and (> 1 2) 
+                 (< 1 0))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Bool(false));
+    }
+
+    #[test]
+    fn test_and_2() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (and (< 1 2) 
+                 (< 2 3)
+                 (> 3 0))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Bool(true));
+    }
+
+    #[test]
+    fn test_or_1() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (or (> 1 2) 
+                (< 1 0))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Bool(false));
+    }
+
+    #[test]
+    fn test_or_2() {
+        let mut env = Box::new(Env::new());
+        let program = "
+            (or (< 1 2) 
+                (< 2 3)
+                (> 0 3))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Bool(true));
     }
 }
