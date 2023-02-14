@@ -34,7 +34,7 @@ impl fmt::Display for TokenError {
 }
 
 pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
-    let program2 = program.replace("(", " ( ").replace(")", " ) ");
+    let program2 = program.replace('(', " ( ").replace(')', " ) ");
     let words = program2.split_whitespace();
     let mut tokens: Vec<Token> = Vec::new();
     for word in words {
@@ -42,9 +42,8 @@ pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
             "(" => tokens.push(Token::LParen),
             ")" => tokens.push(Token::RParen),
             _ => {
-                let i = word.parse::<i64>();
-                if i.is_ok() {
-                    tokens.push(Token::Integer(i.unwrap()));
+                if let Ok(i) = word.parse::<i64>() {
+                    tokens.push(Token::Integer(i));
                 } else {
                     tokens.push(Token::Symbol(word.to_string()));
                 }

@@ -2,9 +2,14 @@ use crate::env::*;
 use crate::object::*;
 use crate::parser::*;
 
+enum LogicalOp {
+    And,
+    Or,
+}
+
 fn eval_binary_op(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     if list.len() != 3 {
-        return Err(format!("Invalid number of arguments for infix operator"));
+        return Err("Invalid number of arguments for infix operator".to_string());
     }
     let operator = list[0].clone();
     let left = eval_obj(&list[1].clone(), env)?;
@@ -29,18 +34,18 @@ fn eval_binary_op(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "!=" => Ok(Object::Bool(left_val != right_val)),
             _ => Err(format!("Invalid infix operator: {}", s)),
         },
-        _ => Err(format!("Operator must be a symbol")),
+        _ => Err(format!("Operator must be a symbol {:?}", operator)),
     }
 }
 
 fn eval_define(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     if list.len() != 3 {
-        return Err(format!("Invalid number of arguments for define"));
+        return Err("Invalid number of arguments for define".to_string());
     }
 
     let sym = match &list[1] {
         Object::Symbol(s) => s.clone(),
-        _ => return Err(format!("Invalid define")),
+        _ => return Err("Invalid define".to_string()),
     };
     let val = eval_obj(&list[2], env)?;
     env.set(&sym, val);
@@ -49,53 +54,53 @@ fn eval_define(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
 
 fn eval_if(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     if list.len() != 4 {
-        return Err(format!("Invalid number of arguments for if statement"));
+        return Err("Invalid number of arguments for if statement".to_string());
     }
 
     let cond_obj = eval_obj(&list[1], env)?;
     let cond = match cond_obj {
         Object::Bool(b) => b,
-        _ => return Err(format!("Condition must be a boolean")),
+        _ => return Err("Condition must be a boolean".to_string()),
     };
 
-    if cond == true {
-        return eval_obj(&list[2], env);
+    if cond {
+        eval_obj(&list[2], env)
     } else {
-        return eval_obj(&list[3], env);
+        eval_obj(&list[3], env)
     }
 }
 
 fn eval_quote(list: &Vec<Object>) -> Result<Object, String> {
     if list.len() != 2 {
-        return Err(format!("Invalid number of arguments for quote statement"));
+        return Err("Invalid number of arguments for quote statement".to_string());
     }
 
-    return Ok(list[1].clone());
+    Ok(list[1].clone())
 }
 
-fn eval_function_definition(list: &Vec<Object>) -> Result<Object, String> {
+fn eval_function_definition(list: &[Object]) -> Result<Object, String> {
     let params = match &list[1] {
         Object::List(list) => {
             let mut params = Vec::new();
             for param in list {
                 match param {
                     Object::Symbol(s) => params.push(s.clone()),
-                    _ => return Err(format!("Invalid lambda parameter")),
+                    _ => return Err(format!("Invalid lambda parameter {:?}", param)),
                 }
             }
             params
         }
-        _ => return Err(format!("Invalid lambda")),
+        _ => return Err(format!("Invalid lambda {:?}", list[1].clone())),
     };
 
     let body = match &list[2] {
         Object::List(list) => list.clone(),
-        _ => return Err(format!("Invalid lambda")),
+        _ => return Err(format!("Invalid lambda {:?}", list[2].clone())),
     };
     Ok(Object::Lambda(params, body))
 }
 
-fn eval_function_call(s: &str, list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_function_call(s: &str, list: &[Object], env: &mut Env) -> Result<Object, String> {
     let lamdba = env.get(s);
     if lamdba.is_none() {
         return Err(format!("Unbound symbol: {}", s));
@@ -109,9 +114,9 @@ fn eval_function_call(s: &str, list: &Vec<Object>, env: &mut Env) -> Result<Obje
                 let val = eval_obj(&list[i + 1], &mut new_env)?;
                 new_env.set(param, val);
             }
-            return eval_obj(&Object::List(body), &mut new_env);
+            eval_obj(&Object::List(body), &mut new_env)
         }
-        _ => return Err(format!("Not a lambda: {}", s)),
+        _ => Err(format!("Not a lambda: {}", s)),
     }
 }
 
@@ -125,12 +130,12 @@ fn eval_symbol(s: &str, env: &mut Env) -> Result<Object, String> {
     if val.is_none() {
         return Err(format!("Unbound symbol: {}", s));
     }
-    Ok(val.unwrap().clone())
+    Ok(val.unwrap())
 }
 
 fn eval_display(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     if list.len() != 2 {
-        return Err(format!("Invalid number of arguments for display"));
+        return Err("Invalid number of arguments for display".to_string());
     }
 
     let sym = eval_obj(&list[1].clone(), env)?;
@@ -138,9 +143,33 @@ fn eval_display(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     Ok(Object::Void)
 }
 
+fn eval_logical_operation(
+    op: LogicalOp,
+    list: &Vec<Object>,
+    env: &mut Env,
+) -> Result<Object, String> {
+    if list.len() < 3 {
+        return Err("Invalid number of arguments for logical operation".to_string());
+    }
+
+    let mut result = true;
+    for l in list[1..].iter() {
+        let obj = eval_obj(l, env)?;
+        let val = match obj {
+            Object::Bool(b) => b,
+            _ => return Err(format!("Invalid logical operation argument: {:?}", obj)),
+        };
+        result = match op {
+            LogicalOp::And => result && val,
+            LogicalOp::Or => result || val,
+        };
+    }
+    Ok(Object::Bool(result))
+}
+
 fn eval_cond(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     if list.len() < 2 {
-        return Err(format!("Invalid number of arguments for cond"));
+        return Err("Invalid number of arguments for cond".to_string());
     }
 
     for l in list[1..].iter() {
@@ -154,36 +183,36 @@ fn eval_cond(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
                     Object::Bool(b) => b,
                     _ => return Err(format!("Condition must be a boolean {:?}", cond)),
                 };
-                if cond_val == true {
+                if cond_val {
                     return eval_obj(&list[1], env);
                 }
             }
-            _ => return Err(format!("Invalid cond clause")),
+            _ => return Err("Invalid cond clause".to_string()),
         }
     }
 
-    return Err(format!("No cond clause matched"));
+    Err("No cond clause matched".to_string())
 }
 
 fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     // Empty list
-    if list.len() == 0 {
+    if list.is_empty() {
         return Ok(Object::Void);
     }
 
     let head = &list[0];
     match head {
         Object::Symbol(s) => match s.as_str() {
-            "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" => {
-                return eval_binary_op(&list, env);
-            }
-            "quote" => eval_quote(&list),
-            "define" => eval_define(&list, env),
-            "if" => eval_if(&list, env),
-            "lambda" => eval_function_definition(&list),
-            "display" => eval_display(&list, env),
-            "cond" => eval_cond(&list, env),
-            _ => eval_function_call(&s, &list, env),
+            "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" => eval_binary_op(list, env),
+            "and" => eval_logical_operation(LogicalOp::And, list, env),
+            "or" => eval_logical_operation(LogicalOp::Or, list, env),
+            "quote" => eval_quote(list),
+            "define" => eval_define(list, env),
+            "if" => eval_if(list, env),
+            "lambda" => eval_function_definition(list),
+            "display" => eval_display(list, env),
+            "cond" => eval_cond(list, env),
+            _ => eval_function_call(s, list, env),
         },
         _ => Err(format!("Invalid list head {:?}", head)),
     }
@@ -212,13 +241,13 @@ pub fn eval(program: &str, env: &mut Env) -> Result<Object, String> {
             for l in list {
                 let result = eval_obj(&l, env);
                 if result.is_err() {
-                    return Err(format!("{}", result.err().unwrap()));
+                    return Err(result.err().unwrap());
                 }
                 r = result.unwrap();
             }
             Ok(r)
         }
-        _ => return Err(format!("Invalid program")),
+        _ => Err("Invalid program".to_string()),
     }
 }
 

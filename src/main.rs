@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reader = Interface::new(PROMPT).unwrap();
     let mut env = Box::new(env::Env::new());
 
-    reader.set_prompt(format!("{}", PROMPT).as_ref()).unwrap();
+    reader.set_prompt(PROMPT.to_string().as_ref()).unwrap();
 
     while let ReadResult::Input(input) = reader.read_line().unwrap() {
         if input.eq("exit") {

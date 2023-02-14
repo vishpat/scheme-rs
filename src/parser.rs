@@ -44,7 +44,7 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
         let token = tokens.pop();
         if token == None {
             return Err(ParseError {
-                err: format!("Did not find enough tokens"),
+                err: "Did not find enough tokens".to_string(),
             });
         }
         let t = token.unwrap();
