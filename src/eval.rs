@@ -148,7 +148,6 @@ fn eval_let(list: &[Object], env: &mut Env) -> Result<Object, String> {
         result = eval_obj(obj, &mut new_env)?;
     }
     Ok(result)
-
 }
 
 fn eval_function_call(s: &str, list: &[Object], env: &mut Env) -> Result<Object, String> {
@@ -248,6 +247,15 @@ fn eval_cond(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     Err("No cond clause matched".to_string())
 }
 
+fn eval_obj_keyword(obj: &[Object], env: &mut Env) -> Result<Object, String> {
+    if obj.len() != 2 {
+        return Err("Invalid number of arguments for eval".to_string());
+    }
+
+    let parameter = eval_obj(&obj[1], env)?;
+    eval_obj(&parameter, env)
+}
+
 fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     // Empty list
     if list.is_empty() {
@@ -268,7 +276,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "display" => eval_display(list, env),
             "cond" => eval_cond(list, env),
             "let" => eval_let(list, env),
-            "eval" => eval_obj(&list[1], env),
+            "eval" => eval_obj_keyword(list, env),
             _ => eval_function_call(s, list, env),
         },
         _ => Err(format!("Invalid list head {:?}", head)),
@@ -552,5 +560,16 @@ mod tests {
 
         let result = eval(program, &mut env).unwrap();
         assert_eq!(result, Object::Integer(35));
+    }
+
+    #[test]
+    fn test_eval() {
+        let mut env = Env::new();
+        let program = "
+            (eval (quote (+ 6 6))) 
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(12));
     }
 }
