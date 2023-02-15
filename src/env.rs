@@ -27,6 +27,15 @@ impl<'a> Env<'a> {
         }
     }
 
+    pub fn set_existing(&mut self, name: &str, val: Object) -> Result<(), String> {
+        if self.vars.contains_key(name) {
+            self.vars.insert(name.to_string(), val);
+            Ok(())
+        } else {
+            Err(format!("Undefined variable: {}", name))
+        }
+    }
+
     pub fn get(&self, name: &str) -> Option<Object> {
         match self.vars.get(name) {
             Some(value) => Some(value.clone()),

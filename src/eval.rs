@@ -52,6 +52,20 @@ fn eval_define(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     Ok(Object::Void)
 }
 
+fn eval_set(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+    if list.len() != 3 {
+        return Err("Invalid number of arguments for set".to_string());
+    }
+
+    let sym = match &list[1] {
+        Object::Symbol(s) => s.clone(),
+        _ => return Err("Invalid define".to_string()),
+    };
+    let val = eval_obj(&list[2], env)?;
+    env.set_existing(&sym, val)?;
+    Ok(Object::Void)
+}
+
 fn eval_if(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     if list.len() != 4 {
         return Err("Invalid number of arguments for if statement".to_string());
@@ -292,6 +306,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "begin" => eval_begin(list, env),
             "if" => eval_if(list, env),
             "eq?" => eval_equal(list, env),
+            "set!" => eval_set(list, env),
             "lambda" => eval_function_definition(list),
             "display" => eval_display(list, env),
             "cond" => eval_cond(list, env),
@@ -630,6 +645,19 @@ mod tests {
 
         let result = eval(program, &mut env).unwrap();
         assert_eq!(result, Object::Bool(true));
+    }
+
+    #[test]
+    fn test_set_1() {
+        let mut env = Env::new();
+        let program = "
+            (define x 10)
+            (set! x 20)
+            x
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(20));
     }
 
     #[test]

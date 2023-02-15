@@ -43,18 +43,18 @@ pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
         return Ok(tokens);
     }
 
-    while chars.len() > 0 {
+    while !chars.is_empty() {
         let mut ch = chars.remove(0);
         match ch {
             '(' => tokens.push(Token::LParen),
             ')' => tokens.push(Token::RParen),
             '"' => {
                 let mut word = String::new();
-                while chars.len() > 0 && chars[0] != '"' {
+                while !chars.is_empty() && chars[0] != '"' {
                     word.push(chars.remove(0));
                 }
 
-                if chars.len() > 0 && chars[0] == '"' {
+                if !chars.is_empty() && chars[0] == '"' {
                     chars.remove(0);
                 } else {
                     return Err(TokenError { ch: '"' });
@@ -64,7 +64,7 @@ pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
             }
             _ => {
                 let mut word = String::new();
-                while chars.len() > 0 && !ch.is_whitespace() && ch != '(' && ch != ')' {
+                while !chars.is_empty() && !ch.is_whitespace() && ch != '(' && ch != ')' {
                     word.push(ch);
                     let peek = chars[0];
                     if peek == '(' || peek == ')' {
