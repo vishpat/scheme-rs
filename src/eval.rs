@@ -309,6 +309,7 @@ fn eval_obj(obj: &Object, env: &mut Env) -> Result<Object, String> {
         Object::Void => Ok(Object::Void),
         Object::Lambda(_params, _body) => Ok(Object::Void),
         Object::Bool(_) => Ok(obj.clone()),
+        Object::String(s) => Ok(Object::String(s.clone())),
         Object::Integer(n) => Ok(Object::Integer(*n)),
         Object::Symbol(s) => eval_symbol(s, env),
     }
@@ -600,6 +601,31 @@ mod tests {
             (eq? (quote (1 2 3)) 
                  (quote (1 2 3))
             )
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Bool(true));
+    }
+
+
+    #[test]
+    fn test_eq_3() {
+        let mut env = Env::new();
+        let program = "
+            (eq? \"xyz abc\" 
+                 \"xyz abcd\")
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Bool(false));
+    }
+
+    #[test]
+    fn test_eq_4() {
+        let mut env = Env::new();
+        let program = "
+            (eq? (list \"xyz abc\" \"abc\") 
+                 (list \"xyz abc\" \"abc\"))
         ";
 
         let result = eval(program, &mut env).unwrap();

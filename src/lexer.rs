@@ -5,6 +5,7 @@ use std::fmt;
 pub enum Token {
     Integer(i64),
     Symbol(String),
+    String(String),
     LParen,
     RParen,
 }
@@ -14,6 +15,7 @@ impl fmt::Display for Token {
         match self {
             Token::Integer(n) => write!(f, "{}", n),
             Token::Symbol(s) => write!(f, "{}", s),
+            Token::String(s) => write!(f, "{}", s),
             Token::LParen => write!(f, "("),
             Token::RParen => write!(f, ")"),
         }
@@ -34,22 +36,55 @@ impl fmt::Display for TokenError {
 }
 
 pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
-    let program2 = program.replace('(', " ( ").replace(')', " ) ");
-    let words = program2.split_whitespace();
-    let mut tokens: Vec<Token> = Vec::new();
-    for word in words {
-        match word {
-            "(" => tokens.push(Token::LParen),
-            ")" => tokens.push(Token::RParen),
-            _ => {
-                if let Ok(i) = word.parse::<i64>() {
-                    tokens.push(Token::Integer(i));
+    let mut tokens = Vec::new();
+    let mut chars = program.chars().collect::<Vec<char>>();
+
+    if chars.is_empty() {
+        return Ok(tokens);
+    }
+
+    while chars.len() > 0 {
+        let mut ch = chars.remove(0);
+        match ch {
+            '(' => tokens.push(Token::LParen),
+            ')' => tokens.push(Token::RParen),
+            '"' => {
+                let mut word = String::new();
+                while chars.len() > 0 && chars[0] != '"' {
+                    word.push(chars.remove(0));
+                }
+
+                if chars.len() > 0 && chars[0] == '"' {
+                    chars.remove(0);
                 } else {
-                    tokens.push(Token::Symbol(word.to_string()));
+                    return Err(TokenError { ch: '"' });
+                }
+
+                tokens.push(Token::String(word));
+            }
+            _ => {
+                let mut word = String::new();
+                while chars.len() > 0 && !ch.is_whitespace() && ch != '(' && ch != ')' {
+                    word.push(ch);
+                    let peek = chars[0];
+                    if peek == '(' || peek == ')' {
+                        break;
+                    }
+
+                    ch = chars.remove(0);
+                }
+
+                if !word.is_empty() {
+                    tokens.push(if let Ok(i) = word.parse::<i64>() {
+                        Token::Integer(i)
+                    } else {
+                        Token::Symbol(word)
+                    });
                 }
             }
         }
     }
+
     Ok(tokens)
 }
 

@@ -51,6 +51,7 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
         match t {
             Token::Integer(n) => list.push(Object::Integer(n)),
             Token::Symbol(s) => list.push(Object::Symbol(s)),
+            Token::String(s) => list.push(Object::String(s)),
             Token::LParen => {
                 tokens.push(Token::LParen);
                 let sub_list = parse_list(tokens)?;
