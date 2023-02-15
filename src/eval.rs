@@ -220,6 +220,14 @@ fn eval_logical_operation(
     Ok(Object::Bool(result))
 }
 
+fn eval_begin(list: &[Object], env: &mut Env) -> Result<Object, String> {
+    let mut result = Object::Void;
+    for obj in list[1..].iter() {
+        result = eval_obj(obj, env)?;
+    }
+    Ok(result)
+}
+
 fn eval_cond(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     if list.len() < 2 {
         return Err("Invalid number of arguments for cond".to_string());
@@ -271,6 +279,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "quote" => eval_quote(list),
             "list" => eval_list_keyword(list, env),
             "define" => eval_define(list, env),
+            "begin" => eval_begin(list, env),
             "if" => eval_if(list, env),
             "lambda" => eval_function_definition(list),
             "display" => eval_display(list, env),
@@ -566,10 +575,21 @@ mod tests {
     fn test_eval() {
         let mut env = Env::new();
         let program = "
-            (eval (quote (+ 6 6))) 
+            (eval 
+                (quote 
+                    (begin
+                        (define fact 
+                            (lambda (n) 
+                                (if (< n 1) 
+                                    1 
+                                    (* n (fact (- n 1))))))
+                    (fact 5)
+                    )
+                )
+            )
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(12));
+        assert_eq!(result, Object::Integer(120));
     }
 }
