@@ -228,6 +228,16 @@ fn eval_begin(list: &[Object], env: &mut Env) -> Result<Object, String> {
     Ok(result)
 }
 
+fn eval_equal(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+    if list.len() != 3 {
+        return Err("Invalid number of arguments for eq?".to_string());
+    }
+
+    let obj1 = eval_obj(&list[1], env)?;
+    let obj2 = eval_obj(&list[2], env)?;
+    Ok(Object::Bool(obj1 == obj2))
+}
+
 fn eval_cond(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     if list.len() < 2 {
         return Err("Invalid number of arguments for cond".to_string());
@@ -281,6 +291,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "define" => eval_define(list, env),
             "begin" => eval_begin(list, env),
             "if" => eval_if(list, env),
+            "eq?" => eval_equal(list, env),
             "lambda" => eval_function_definition(list),
             "display" => eval_display(list, env),
             "cond" => eval_cond(list, env),
@@ -569,6 +580,30 @@ mod tests {
 
         let result = eval(program, &mut env).unwrap();
         assert_eq!(result, Object::Integer(35));
+    }
+
+    #[test]
+    fn test_eq_1() {
+        let mut env = Env::new();
+        let program = "
+            (eq? 1 1)
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Bool(true));
+    }
+
+    #[test]
+    fn test_eq_2() {
+        let mut env = Env::new();
+        let program = "
+            (eq? (quote (1 2 3)) 
+                 (quote (1 2 3))
+            )
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Bool(true));
     }
 
     #[test]
