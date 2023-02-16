@@ -48,7 +48,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_is_even() {
+    fn test_compose() {
         let mut env = Box::new(env::Env::new());
         let program = "
             (define compose 
@@ -67,5 +67,36 @@ mod tests {
         ";
         let result = eval::eval(program, &mut env).unwrap();
         assert_eq!(result, Object::Bool(false));
+    }
+
+    #[test]
+    fn test_map() {
+        let mut env = Box::new(env::Env::new());
+        let program = "
+            (define map 
+                (lambda (f a-list)
+                (cond ((null? a-list) a-list)
+                    (#t (cons (f (car a-list)) (map f (cdr a-list)))))))
+            
+            (define even? 
+                (lambda (n) 
+                    (if (= (% n 2) 0) 
+                        #t 
+                        #f
+                    )
+                )
+            ) 
+            (map even? (quote (1 2 3 4)))
+        ";
+        let result = eval::eval(program, &mut env).unwrap();
+        assert_eq!(
+            result,
+            Object::List(vec![
+                Object::Bool(false),
+                Object::Bool(true),
+                Object::Bool(false),
+                Object::Bool(true)
+            ])
+        );
     }
 }

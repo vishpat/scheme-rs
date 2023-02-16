@@ -141,6 +141,19 @@ fn eval_quote(list: &Vec<Object>) -> Result<Object, String> {
     Ok(list[1].clone())
 }
 
+fn eval_null(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+    if list.len() != 2 {
+        return Err("Invalid number of arguments for null statement".to_string());
+    }
+
+    let obj = eval_obj(&list[1], env)?;
+    let list = match obj {
+        Object::List(l) => l,
+        _ => return Err("null arg must be a list".to_string()),
+    };
+    Ok(Object::Bool(list.is_empty()))
+}
+
 fn eval_list_keyword(list: &[Object], env: &mut Env) -> Result<Object, String> {
     let mut new_list = Vec::new();
 
@@ -349,6 +362,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" | "%" => eval_binary_op(list, env),
             "and" => eval_logical_operation(LogicalOp::And, list, env),
             "or" => eval_logical_operation(LogicalOp::Or, list, env),
+            "null?" => eval_null(list, env),
             "quote" => eval_quote(list),
             "cons" => eval_cons(list, env),
             "car" => eval_car(list, env),
