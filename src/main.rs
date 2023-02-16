@@ -42,3 +42,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Good bye");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_even() {
+        let mut env = Box::new(env::Env::new());
+        let program = "
+            (define compose 
+                (lambda (f g x)
+                    (f (g x))))
+
+            (define even? 
+                (lambda (n) 
+                    (if (= (% n 2) 0) 
+                        #t 
+                        #f
+                    )
+                )
+            ) 
+            (compose even? (lambda (x) (- x 1)) 10)
+        ";
+        let result = eval::eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Bool(false));
+    }
+}

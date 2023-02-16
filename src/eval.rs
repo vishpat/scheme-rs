@@ -28,6 +28,7 @@ fn eval_binary_op(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "-" => Ok(Object::Integer(left_val - right_val)),
             "*" => Ok(Object::Integer(left_val * right_val)),
             "/" => Ok(Object::Integer(left_val / right_val)),
+            "%" => Ok(Object::Integer(left_val % right_val)),
             "<" => Ok(Object::Bool(left_val < right_val)),
             ">" => Ok(Object::Bool(left_val > right_val)),
             "=" => Ok(Object::Bool(left_val == right_val)),
@@ -345,7 +346,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     let head = &list[0];
     match head {
         Object::Symbol(s) => match s.as_str() {
-            "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" => eval_binary_op(list, env),
+            "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" | "%" => eval_binary_op(list, env),
             "and" => eval_logical_operation(LogicalOp::And, list, env),
             "or" => eval_logical_operation(LogicalOp::Or, list, env),
             "quote" => eval_quote(list),
@@ -769,5 +770,34 @@ mod tests {
                 Object::Symbol("d".to_string())
             ])
         );
+    }
+
+    #[test]
+    fn test_cdr_1() {
+        let mut env = Env::new();
+        let program = "
+            (cdr (quote ((a) b c d))))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(
+            result,
+            Object::List(vec![
+                Object::Symbol("b".to_string()),
+                Object::Symbol("c".to_string()),
+                Object::Symbol("d".to_string())
+            ])
+        );
+    }
+
+    #[test]
+    fn test_car_1() {
+        let mut env = Env::new();
+        let program = "
+            (car (quote ((a) b c d))))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::List(vec![Object::Symbol("a".to_string()),]));
     }
 }
