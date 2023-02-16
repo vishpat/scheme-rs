@@ -38,6 +38,54 @@ fn eval_binary_op(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     }
 }
 
+fn eval_cons(list: &[Object], env: &mut Env) -> Result<Object, String> {
+    if list.len() != 3 {
+        return Err("Invalid number of arguments for cons".to_string());
+    }
+
+    let car = eval_obj(&list[1], env)?;
+    let cdr = eval_obj(&list[2], env)?;
+    let cdr_list = match cdr {
+        Object::List(l) => l,
+        _ => return Err("cdr must be a list".to_string()),
+    };
+    let mut new_list = vec![car];
+    new_list.extend(cdr_list);
+    Ok(Object::List(new_list))
+}
+
+fn eval_car(list: &[Object], env: &mut Env) -> Result<Object, String> {
+    if list.len() != 2 {
+        return Err("Invalid number of arguments for car".to_string());
+    }
+
+    let obj = eval_obj(&list[1], env)?;
+    let list = match obj {
+        Object::List(l) => l,
+        _ => return Err("car must be a list".to_string()),
+    };
+    if list.is_empty() {
+        return Err("car of empty list".to_string());
+    }
+    Ok(list[0].clone())
+}
+
+fn eval_cdr(list: &[Object], env: &mut Env) -> Result<Object, String> {
+    if list.len() != 2 {
+        return Err("Invalid number of arguments for cdr".to_string());
+    }
+
+    let obj = eval_obj(&list[1], env)?;
+    let list = match obj {
+        Object::List(l) => l,
+        _ => return Err("cdr must be a list".to_string()),
+    };
+    if list.is_empty() {
+        return Err("cdr of empty list".to_string());
+    }
+    Ok(Object::List(list[1..].to_vec()))
+}
+
 fn eval_define(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     if list.len() != 3 {
         return Err("Invalid number of arguments for define".to_string());
@@ -301,6 +349,9 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "and" => eval_logical_operation(LogicalOp::And, list, env),
             "or" => eval_logical_operation(LogicalOp::Or, list, env),
             "quote" => eval_quote(list),
+            "cons" => eval_cons(list, env),
+            "car" => eval_car(list, env),
+            "cdr" => eval_cdr(list, env),
             "list" => eval_list_keyword(list, env),
             "define" => eval_define(list, env),
             "begin" => eval_begin(list, env),
@@ -622,7 +673,6 @@ mod tests {
         assert_eq!(result, Object::Bool(true));
     }
 
-
     #[test]
     fn test_eq_3() {
         let mut env = Env::new();
@@ -680,5 +730,44 @@ mod tests {
 
         let result = eval(program, &mut env).unwrap();
         assert_eq!(result, Object::Integer(120));
+    }
+    #[test]
+    fn test_cons_1() {
+        let mut env = Env::new();
+        let program = "
+            (cons 1 (cons 2 (cons 3 (cons 4 (quote ())))))
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(
+            result,
+            Object::List(vec![
+                Object::Integer(1),
+                Object::Integer(2),
+                Object::Integer(3),
+                Object::Integer(4)
+            ])
+        );
+    }
+
+    #[test]
+    fn test_cons_2() {
+        let mut env = Env::new();
+        let program = "
+            (cons (quote (a b c)) (quote (d))) 
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(
+            result,
+            Object::List(vec![
+                Object::List(vec![
+                    Object::Symbol("a".to_string()),
+                    Object::Symbol("b".to_string()),
+                    Object::Symbol("c".to_string())
+                ]),
+                Object::Symbol("d".to_string())
+            ])
+        );
     }
 }
