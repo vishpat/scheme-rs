@@ -57,7 +57,7 @@ mod tests {
 
             (define even? 
                 (lambda (n) 
-                    (if (= (% n 2) 0) 
+                    (if (= (mod n 2) 0) 
                         #t 
                         #f
                     )
@@ -80,7 +80,7 @@ mod tests {
             
             (define even? 
                 (lambda (n) 
-                    (if (= (% n 2) 0) 
+                    (if (= (mod n 2) 0) 
                         #t 
                         #f
                     )
@@ -97,6 +97,33 @@ mod tests {
                 Object::Bool(false),
                 Object::Bool(true)
             ])
+        );
+    }
+
+    #[test]
+    fn test_foldr() {
+        let mut env = Box::new(env::Env::new());
+        let program = "
+            (define add 
+                (lambda (x y) 
+                    (+ x y)))
+
+            (define foldr 
+                (lambda (func end lst)
+                    (if (null? lst)
+                        end
+                        (func (car lst) (foldr func end (cdr lst)))))) 
+            
+            (define sum 
+                (lambda (lst) 
+                    (foldr add 0 lst)))
+
+            (sum (quote (1 2 3 4)))
+        ";
+        let result = eval::eval(program, &mut env).unwrap();
+        assert_eq!(
+            result,
+            Object::Integer(10)
         );
     }
 }

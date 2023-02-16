@@ -28,7 +28,7 @@ fn eval_binary_op(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
             "-" => Ok(Object::Integer(left_val - right_val)),
             "*" => Ok(Object::Integer(left_val * right_val)),
             "/" => Ok(Object::Integer(left_val / right_val)),
-            "%" => Ok(Object::Integer(left_val % right_val)),
+            "mod" => Ok(Object::Integer(left_val % right_val)),
             "<" => Ok(Object::Bool(left_val < right_val)),
             ">" => Ok(Object::Bool(left_val > right_val)),
             "=" => Ok(Object::Bool(left_val == right_val)),
@@ -359,7 +359,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     let head = &list[0];
     match head {
         Object::Symbol(s) => match s.as_str() {
-            "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" | "%" => eval_binary_op(list, env),
+            "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" | "mod" => eval_binary_op(list, env),
             "and" => eval_logical_operation(LogicalOp::And, list, env),
             "or" => eval_logical_operation(LogicalOp::Or, list, env),
             "null?" => eval_null(list, env),
