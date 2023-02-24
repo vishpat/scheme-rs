@@ -426,14 +426,14 @@ mod tests {
 
     #[test]
     fn test_simple_add() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let result = eval("(+ 1 2)", &mut env).unwrap();
         assert_eq!(result, Object::Integer(3));
     }
 
     #[test]
     fn test_area_of_a_circle() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (define r 10)
             (define pi 314)
@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn test_sqr_function() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (define sqr 
                 (lambda (r) (* r r))) 
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn test_fibonaci() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (define fib 
                 (lambda (n) 
@@ -472,7 +472,7 @@ mod tests {
 
     #[test]
     fn test_factorial() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (define fact 
                 (lambda (n) 
@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn test_circle_area_function() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (define pi 314)
             (define r 10)
@@ -505,7 +505,7 @@ mod tests {
 
     #[test]
     fn test_quote_1() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (quote (1 2 3))
         ";
@@ -523,7 +523,7 @@ mod tests {
 
     #[test]
     fn test_quote_2() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (quote a)
         ";
@@ -534,7 +534,7 @@ mod tests {
 
     #[test]
     fn test_cond_1() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (cond ((> 2 1) 5) 
                   ((< 2 1) 10) 
@@ -547,7 +547,7 @@ mod tests {
 
     #[test]
     fn test_cond_2() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (cond ((> 1 2) 5) 
                   ((< 1 2) 10) 
@@ -560,7 +560,7 @@ mod tests {
 
     #[test]
     fn test_cond_3() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (cond ((> 1 2) 5) 
                   ((< 1 0) 10) 
@@ -573,7 +573,7 @@ mod tests {
 
     #[test]
     fn test_and_1() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (and (> 1 2) 
                  (< 1 0))
@@ -585,7 +585,7 @@ mod tests {
 
     #[test]
     fn test_and_2() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (and (< 1 2) 
                  (< 2 3)
@@ -598,7 +598,7 @@ mod tests {
 
     #[test]
     fn test_or_1() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (or (> 1 2) 
                 (< 1 0))
@@ -610,7 +610,7 @@ mod tests {
 
     #[test]
     fn test_or_2() {
-        let mut env = Box::new(Env::new());
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (or (< 1 2) 
                 (< 2 3)
@@ -623,7 +623,7 @@ mod tests {
 
     #[test]
     fn test_let_1() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (let ((a 10) (b 20))
                 (list a b)
@@ -639,7 +639,7 @@ mod tests {
 
     #[test]
     fn test_let_2() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (define a 100)
             (let ((a 10) (b 20))
@@ -654,7 +654,7 @@ mod tests {
 
     #[test]
     fn test_let_3() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (let ((x 2) (y 3))
                 (let ((x 7)
@@ -668,7 +668,7 @@ mod tests {
 
     #[test]
     fn test_eq_1() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (eq? 1 1)
         ";
@@ -679,7 +679,7 @@ mod tests {
 
     #[test]
     fn test_eq_2() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (eq? (quote (1 2 3)) 
                  (quote (1 2 3))
@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     fn test_eq_3() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (eq? \"xyz abc\" 
                  \"xyz abcd\")
@@ -704,7 +704,7 @@ mod tests {
 
     #[test]
     fn test_eq_4() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (eq? (list \"xyz abc\" \"abc\") 
                  (list \"xyz abc\" \"abc\"))
@@ -716,7 +716,7 @@ mod tests {
 
     #[test]
     fn test_set_1() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (define x 10)
             (set! x 20)
@@ -729,7 +729,7 @@ mod tests {
 
     #[test]
     fn test_eval() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (eval 
                 (quote 
@@ -750,7 +750,7 @@ mod tests {
     }
     #[test]
     fn test_cons_1() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (cons 1 (cons 2 (cons 3 (cons 4 (quote ())))))
         ";
@@ -769,7 +769,7 @@ mod tests {
 
     #[test]
     fn test_cons_2() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (cons (quote (a b c)) (quote (d))) 
         ";
@@ -790,7 +790,7 @@ mod tests {
 
     #[test]
     fn test_cdr_1() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (cdr (quote ((a) b c d))))
         ";
@@ -808,7 +808,7 @@ mod tests {
 
     #[test]
     fn test_car_1() {
-        let mut env = Env::new();
+        let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (car (quote ((a) b c d))))
         ";
