@@ -165,7 +165,7 @@ fn eval_list_keyword(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Obje
     Ok(Object::List(new_list))
 }
 
-fn eval_function_definition(list: &[Object]) -> Result<Object, String> {
+fn eval_function_definition(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let params = match &list[1] {
         Object::List(list) => {
             let mut params = Vec::new();
@@ -184,7 +184,7 @@ fn eval_function_definition(list: &[Object]) -> Result<Object, String> {
         Object::List(list) => list.clone(),
         _ => return Err(format!("Invalid lambda {:?}", list[2].clone())),
     };
-    Ok(Object::Lambda(params, body))
+    Ok(Object::Lambda(params, body, env.clone()))
 }
 
 fn eval_let(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
@@ -231,13 +231,14 @@ fn eval_let(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, Strin
 fn eval_function_call(s: &str, list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let lamdba = env.borrow().get(s);
     if lamdba.is_none() {
-        return Err(format!("Unbound symbol: {}", s));
+        return Err(format!("Unbound function: {}", s));
     }
 
     let func = lamdba.unwrap();
     match func {
-        Object::Lambda(params, body) => {
+        Object::Lambda(params, body, fenv) => {
             let mut new_env = Rc::new(RefCell::new(Env::extend(env.clone())));
+            new_env.borrow_mut().update(fenv);
             for (i, param) in params.iter().enumerate() {
                 let val = eval_obj(&list[i + 1], &mut new_env)?;
                 new_env.borrow_mut().set(param, val);
@@ -256,7 +257,7 @@ fn eval_symbol(s: &str, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     };
 
     if val.is_none() {
-        return Err(format!("Unbound symbol: {}", s));
+        return Err(format!("Unbound symbol: {}, {:?}", s, env.borrow_mut().vars));
     }
     Ok(val.unwrap())
 }
@@ -375,7 +376,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, S
             "if" => eval_if(list, env),
             "eq?" => eval_equal(list, env),
             "set!" => eval_set(list, env),
-            "lambda" => eval_function_definition(list),
+            "lambda" => eval_function_definition(list, env),
             "display" => eval_display(list, env),
             "cond" => eval_cond(list, env),
             "let" => eval_let(list, env),
@@ -390,7 +391,7 @@ fn eval_obj(obj: &Object, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> 
     match obj {
         Object::List(list) => eval_list(list, env),
         Object::Void => Ok(Object::Void),
-        Object::Lambda(_params, _body) => Ok(Object::Void),
+        Object::Lambda(_params, _body, _fenv) => Ok(Object::Void),
         Object::Bool(_) => Ok(obj.clone()),
         Object::String(s) => Ok(Object::String(s.clone())),
         Object::Integer(n) => Ok(Object::Integer(*n)),
@@ -815,5 +816,20 @@ mod tests {
 
         let result = eval(program, &mut env).unwrap();
         assert_eq!(result, Object::List(vec![Object::Symbol("a".to_string()),]));
+    }
+
+    #[test]
+    fn test_closure1() {
+        let mut env = Rc::new(RefCell::new(Env::new()));
+        let program = "
+            (define add-n 
+                (lambda (n) 
+                    (lambda (a) (+ n a))))
+            (define add-5 (add-n 5))
+            (add-5 10)
+        ";
+
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer((15) as i64));
     }
 }

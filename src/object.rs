@@ -1,4 +1,7 @@
 use std::fmt;
+use std::cell::RefCell;
+use std::rc::Rc;
+use crate::env::Env;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
@@ -7,7 +10,7 @@ pub enum Object {
     Bool(bool),
     String(String),
     Symbol(String),
-    Lambda(Vec<String>, Vec<Object>),
+    Lambda(Vec<String>, Vec<Object>, Rc<RefCell<Env>>),
     List(Vec<Object>),
 }
 
@@ -19,7 +22,7 @@ impl fmt::Display for Object {
             Object::Bool(b) => write!(f, "{}", b),
             Object::Symbol(s) => write!(f, "{}", s),
             Object::String(s) => write!(f, "{}", s),
-            Object::Lambda(params, body) => {
+            Object::Lambda(params, body, _) => {
                 write!(f, "Lambda(")?;
                 for param in params {
                     write!(f, "{} ", param)?;

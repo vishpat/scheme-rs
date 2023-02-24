@@ -6,7 +6,7 @@ use std::rc::Rc;
 #[derive(Debug, PartialEq, Default)]
 pub struct Env {
     parent: Option<Rc<RefCell<Env>>>,
-    vars: HashMap<String, Object>,
+    pub vars: HashMap<String, Object>,
 }
 
 impl Env {
