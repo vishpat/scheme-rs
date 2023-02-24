@@ -1,8 +1,8 @@
 use crate::env::*;
 use crate::object::*;
 use crate::parser::*;
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 enum LogicalOp {
     And,
@@ -228,7 +228,11 @@ fn eval_let(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, Strin
     Ok(result)
 }
 
-fn eval_function_call(s: &str, list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
+fn eval_function_call(
+    s: &str,
+    list: &[Object],
+    env: &mut Rc<RefCell<Env>>,
+) -> Result<Object, String> {
     let lamdba = env.borrow().get(s);
     if lamdba.is_none() {
         return Err(format!("Unbound function: {}", s));
@@ -257,7 +261,11 @@ fn eval_symbol(s: &str, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     };
 
     if val.is_none() {
-        return Err(format!("Unbound symbol: {}, {:?}", s, env.borrow_mut().vars));
+        return Err(format!(
+            "Unbound symbol: {}, {:?}",
+            s,
+            env.borrow_mut().vars
+        ));
     }
     Ok(val.unwrap())
 }

@@ -33,10 +33,7 @@ impl Env {
     pub fn get(&self, name: &str) -> Option<Object> {
         match self.vars.get(name) {
             Some(value) => Some(value.clone()),
-            None => self
-                .parent
-                .as_ref()
-                .and_then(|o| o.borrow().get(name)),
+            None => self.parent.as_ref().and_then(|o| o.borrow().get(name)),
         }
     }
 
