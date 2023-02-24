@@ -99,7 +99,7 @@ fn eval_define(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object,
         _ => return Err("Invalid define".to_string()),
     };
     let val = eval_obj(&list[2], env)?;
-    env.set(&sym, val);
+    env.borrow_mut().set(&sym, val);
     Ok(Object::Void)
 }
 
@@ -113,7 +113,7 @@ fn eval_set(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, St
         _ => return Err("Invalid define".to_string()),
     };
     let val = eval_obj(&list[2], env)?;
-    env.set_existing(&sym, val)?;
+    env.borrow_mut().set(&sym, val);
     Ok(Object::Void)
 }
 
@@ -189,7 +189,7 @@ fn eval_function_definition(list: &[Object]) -> Result<Object, String> {
 
 fn eval_let(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let mut result = Object::Void;
-    let mut bindings_env = Env::new();
+    let bindings_env = Rc::new(RefCell::new(Env::new()));
 
     if list.len() < 3 {
         return Err("Invalid number of arguments for let".to_string());
@@ -216,11 +216,11 @@ fn eval_let(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, Strin
         };
 
         let value = eval_obj(&binding[1], env)?;
-        bindings_env.set(name.as_str(), value);
+        bindings_env.borrow_mut().set(name.as_str(), value);
     }
 
-    let mut new_env = Env::extend(env);
-    new_env.update(bindings_env);
+    let mut new_env = Rc::new(RefCell::new(Env::extend(env.clone())));
+    new_env.borrow_mut().update(bindings_env);
 
     for obj in list[2..].iter() {
         result = eval_obj(obj, &mut new_env)?;
@@ -229,7 +229,7 @@ fn eval_let(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, Strin
 }
 
 fn eval_function_call(s: &str, list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
-    let lamdba = env.get(s);
+    let lamdba = env.borrow().get(s);
     if lamdba.is_none() {
         return Err(format!("Unbound symbol: {}", s));
     }
@@ -237,10 +237,10 @@ fn eval_function_call(s: &str, list: &[Object], env: &mut Rc<RefCell<Env>>) -> R
     let func = lamdba.unwrap();
     match func {
         Object::Lambda(params, body) => {
-            let mut new_env = Env::extend(env);
+            let mut new_env = Rc::new(RefCell::new(Env::extend(env.clone())));
             for (i, param) in params.iter().enumerate() {
                 let val = eval_obj(&list[i + 1], &mut new_env)?;
-                new_env.set(param, val);
+                new_env.borrow_mut().set(param, val);
             }
             eval_obj(&Object::List(body), &mut new_env)
         }
@@ -252,7 +252,7 @@ fn eval_symbol(s: &str, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let val = match s {
         "#t" | "else" => return Ok(Object::Bool(true)),
         "#f" => return Ok(Object::Bool(false)),
-        _ => env.get(s),
+        _ => env.borrow_mut().get(s),
     };
 
     if val.is_none() {
