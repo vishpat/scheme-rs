@@ -1,13 +1,15 @@
 use crate::env::*;
 use crate::object::*;
 use crate::parser::*;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 enum LogicalOp {
     And,
     Or,
 }
 
-fn eval_binary_op(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_binary_op(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 3 {
         return Err("Invalid number of arguments for infix operator".to_string());
     }
@@ -39,7 +41,7 @@ fn eval_binary_op(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     }
 }
 
-fn eval_cons(list: &[Object], env: &mut Env) -> Result<Object, String> {
+fn eval_cons(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 3 {
         return Err("Invalid number of arguments for cons".to_string());
     }
@@ -55,7 +57,7 @@ fn eval_cons(list: &[Object], env: &mut Env) -> Result<Object, String> {
     Ok(Object::List(new_list))
 }
 
-fn eval_car(list: &[Object], env: &mut Env) -> Result<Object, String> {
+fn eval_car(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 2 {
         return Err("Invalid number of arguments for car".to_string());
     }
@@ -71,7 +73,7 @@ fn eval_car(list: &[Object], env: &mut Env) -> Result<Object, String> {
     Ok(list[0].clone())
 }
 
-fn eval_cdr(list: &[Object], env: &mut Env) -> Result<Object, String> {
+fn eval_cdr(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 2 {
         return Err("Invalid number of arguments for cdr".to_string());
     }
@@ -87,7 +89,7 @@ fn eval_cdr(list: &[Object], env: &mut Env) -> Result<Object, String> {
     Ok(Object::List(list[1..].to_vec()))
 }
 
-fn eval_define(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_define(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 3 {
         return Err("Invalid number of arguments for define".to_string());
     }
@@ -101,7 +103,7 @@ fn eval_define(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     Ok(Object::Void)
 }
 
-fn eval_set(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_set(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 3 {
         return Err("Invalid number of arguments for set".to_string());
     }
@@ -115,7 +117,7 @@ fn eval_set(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     Ok(Object::Void)
 }
 
-fn eval_if(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_if(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 4 {
         return Err("Invalid number of arguments for if statement".to_string());
     }
@@ -141,7 +143,7 @@ fn eval_quote(list: &Vec<Object>) -> Result<Object, String> {
     Ok(list[1].clone())
 }
 
-fn eval_null(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_null(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 2 {
         return Err("Invalid number of arguments for null statement".to_string());
     }
@@ -154,7 +156,7 @@ fn eval_null(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     Ok(Object::Bool(list.is_empty()))
 }
 
-fn eval_list_keyword(list: &[Object], env: &mut Env) -> Result<Object, String> {
+fn eval_list_keyword(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let mut new_list = Vec::new();
 
     for obj in list[1..].iter() {
@@ -185,7 +187,7 @@ fn eval_function_definition(list: &[Object]) -> Result<Object, String> {
     Ok(Object::Lambda(params, body))
 }
 
-fn eval_let(list: &[Object], env: &mut Env) -> Result<Object, String> {
+fn eval_let(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let mut result = Object::Void;
     let mut bindings_env = Env::new();
 
@@ -226,7 +228,7 @@ fn eval_let(list: &[Object], env: &mut Env) -> Result<Object, String> {
     Ok(result)
 }
 
-fn eval_function_call(s: &str, list: &[Object], env: &mut Env) -> Result<Object, String> {
+fn eval_function_call(s: &str, list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let lamdba = env.get(s);
     if lamdba.is_none() {
         return Err(format!("Unbound symbol: {}", s));
@@ -246,7 +248,7 @@ fn eval_function_call(s: &str, list: &[Object], env: &mut Env) -> Result<Object,
     }
 }
 
-fn eval_symbol(s: &str, env: &mut Env) -> Result<Object, String> {
+fn eval_symbol(s: &str, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let val = match s {
         "#t" | "else" => return Ok(Object::Bool(true)),
         "#f" => return Ok(Object::Bool(false)),
@@ -259,7 +261,7 @@ fn eval_symbol(s: &str, env: &mut Env) -> Result<Object, String> {
     Ok(val.unwrap())
 }
 
-fn eval_display(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_display(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 2 {
         return Err("Invalid number of arguments for display".to_string());
     }
@@ -272,7 +274,7 @@ fn eval_display(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
 fn eval_logical_operation(
     op: LogicalOp,
     list: &Vec<Object>,
-    env: &mut Env,
+    env: &mut Rc<RefCell<Env>>,
 ) -> Result<Object, String> {
     if list.len() < 3 {
         return Err("Invalid number of arguments for logical operation".to_string());
@@ -296,7 +298,7 @@ fn eval_logical_operation(
     Ok(Object::Bool(result))
 }
 
-fn eval_begin(list: &[Object], env: &mut Env) -> Result<Object, String> {
+fn eval_begin(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let mut result = Object::Void;
     for obj in list[1..].iter() {
         result = eval_obj(obj, env)?;
@@ -304,7 +306,7 @@ fn eval_begin(list: &[Object], env: &mut Env) -> Result<Object, String> {
     Ok(result)
 }
 
-fn eval_equal(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_equal(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() != 3 {
         return Err("Invalid number of arguments for eq?".to_string());
     }
@@ -314,7 +316,7 @@ fn eval_equal(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     Ok(Object::Bool(obj1 == obj2))
 }
 
-fn eval_cond(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_cond(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if list.len() < 2 {
         return Err("Invalid number of arguments for cond".to_string());
     }
@@ -341,7 +343,7 @@ fn eval_cond(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     Err("No cond clause matched".to_string())
 }
 
-fn eval_obj_keyword(obj: &[Object], env: &mut Env) -> Result<Object, String> {
+fn eval_obj_keyword(obj: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     if obj.len() != 2 {
         return Err("Invalid number of arguments for eval".to_string());
     }
@@ -350,7 +352,7 @@ fn eval_obj_keyword(obj: &[Object], env: &mut Env) -> Result<Object, String> {
     eval_obj(&parameter, env)
 }
 
-fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
+fn eval_list(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     // Empty list
     if list.is_empty() {
         return Ok(Object::Void);
@@ -384,7 +386,7 @@ fn eval_list(list: &Vec<Object>, env: &mut Env) -> Result<Object, String> {
     }
 }
 
-fn eval_obj(obj: &Object, env: &mut Env) -> Result<Object, String> {
+fn eval_obj(obj: &Object, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     match obj {
         Object::List(list) => eval_list(list, env),
         Object::Void => Ok(Object::Void),
@@ -396,7 +398,7 @@ fn eval_obj(obj: &Object, env: &mut Env) -> Result<Object, String> {
     }
 }
 
-pub fn eval(program: &str, env: &mut Env) -> Result<Object, String> {
+pub fn eval(program: &str, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
     let parsed_list = parse(program);
     if parsed_list.is_err() {
         return Err(format!("{}", parsed_list.err().unwrap()));
