@@ -103,7 +103,7 @@ fn eval_define(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object,
         }
         Object::List(l) => match &l[0] {
             Object::Symbol(s) => s.clone(),
-            _ => return Err("Invalid define".to_string()),
+            _ => return Err("Invalid function definition in define".to_string()),
         },
         _ => return Err("Invalid define".to_string()),
     };
@@ -514,6 +514,21 @@ mod tests {
         let result = eval(program, &mut env).unwrap();
         assert_eq!(result, Object::Integer(60 as i64));
     }
+
+    #[test]
+    fn test_function_definition_recursion() {
+        let mut env = Rc::new(RefCell::new(Env::new()));
+        let program = "
+            (define (fibonacci n)
+                (if (< n 2) n
+                    (+ (fibonacci (- n 1))
+                    (fibonacci (- n 2)))))
+            (fibonacci 10)
+        ";
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(55 as i64));
+    }
+
     #[test]
     fn test_sqr_function() {
         let mut env = Rc::new(RefCell::new(Env::new()));
