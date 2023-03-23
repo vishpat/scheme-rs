@@ -94,11 +94,38 @@ fn eval_define(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Object,
         return Err("Invalid number of arguments for define".to_string());
     }
 
+    let mut function = true;
+
     let sym = match &list[1] {
-        Object::Symbol(s) => s.clone(),
+        Object::Symbol(s) => {
+            function = false;
+            s.clone()
+        }
+        Object::List(l) => match &l[0] {
+            Object::Symbol(s) => s.clone(),
+            _ => return Err("Invalid define".to_string()),
+        },
         _ => return Err("Invalid define".to_string()),
     };
-    let val = eval_obj(&list[2], env)?;
+
+    let val = if function {
+        let params = match &list[1] {
+            Object::List(l) => {
+                let mut v = l.clone();
+                v.remove(0);
+                Object::List(v)
+            }
+            _ => return Err("Invalid function signature: define".to_string()),
+        };
+        match &list[2] {
+            Object::List(l) => l.clone(),
+            _ => return Err("Invalid function body: define".to_string()),
+        };
+        let function_definition = vec![Object::Void, params, list[2].clone()];
+        eval_function_definition(&function_definition, env)?
+    } else {
+        eval_obj(&list[2], env)?
+    };
     env.borrow_mut().set(&sym, val);
     Ok(Object::Void)
 }
@@ -166,6 +193,13 @@ fn eval_list_keyword(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Obje
 }
 
 fn eval_function_definition(list: &[Object], env: &mut Rc<RefCell<Env>>) -> Result<Object, String> {
+    if list.len() != 3 {
+        return Err(format!(
+            "Invalid lambda {:?} did not find expected len of list",
+            list
+        ));
+    }
+
     let params = match &list[1] {
         Object::List(list) => {
             let mut params = Vec::new();
@@ -452,6 +486,34 @@ mod tests {
         assert_eq!(result, Object::Integer((314 * 10 * 10) as i64));
     }
 
+    #[test]
+    fn test_function_definition() {
+        let mut env = Rc::new(RefCell::new(Env::new()));
+        let program = "
+            (define r 10)
+            (define pi 314)
+            (define (area-of-circle r) 
+                (* pi (* r r)))
+            (area-of-circle 10)
+        ";
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer((314 * 10 * 10) as i64));
+    }
+
+    #[test]
+    fn test_function_definition_2() {
+        let mut env = Rc::new(RefCell::new(Env::new()));
+        let program = "
+            (define x 10)
+            (define y 20)
+            (define z 30)
+            (define (sum a b c) 
+                (+ a (+ b c)))
+            (sum x y z)
+        ";
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(60 as i64));
+    }
     #[test]
     fn test_sqr_function() {
         let mut env = Rc::new(RefCell::new(Env::new()));

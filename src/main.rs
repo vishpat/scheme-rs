@@ -8,11 +8,10 @@ mod test;
 use linefeed::{Interface, ReadResult};
 use object::Object;
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::env::args;
 use std::fs::File;
 use std::io::Read;
-
+use std::rc::Rc;
 
 const PROMPT: &str = "lisp-rs> ";
 
@@ -53,15 +52,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = args().collect();
 
     if args.len() < 2 {
-        return repl() 
+        return repl();
     } else {
         let mut file = File::open(&args[1]).expect("File not found");
         let mut contents = String::new();
-        file.read_to_string(&mut contents).expect("Could not read file");
+        file.read_to_string(&mut contents)
+            .expect("Could not read file");
         let mut env = Rc::new(RefCell::new(env::Env::new()));
         let result = eval::eval(&contents, &mut env).unwrap();
         println!("{}", result);
-    }   
+    }
 
-    Ok(()) 
+    Ok(())
 }
