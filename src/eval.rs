@@ -530,6 +530,19 @@ mod tests {
     }
 
     #[test]
+    fn test_recursive_sum() {
+        let mut env = Rc::new(RefCell::new(Env::new()));
+        let program = "
+        (define (sum ls)
+            (if (null? ls) 0
+                (+ (car ls) (sum (cdr ls)))))
+        (sum (quote (1 2 3 4 5 6 7 8 9 10))) 
+        ";
+        let result = eval(program, &mut env).unwrap();
+        assert_eq!(result, Object::Integer(55 as i64));
+    }
+
+    #[test]
     fn test_sqr_function() {
         let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
