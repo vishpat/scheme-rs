@@ -17,20 +17,20 @@ fn eval_binary_op(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Obje
     let left = eval_obj(&list[1].clone(), env)?;
     let right = eval_obj(&list[2].clone(), env)?;
     let left_val = match left {
-        Object::Integer(n) => n,
+        Object::Float(n) => n,
         _ => return Err(format!("Left operand must be an integer {:?}", left)),
     };
     let right_val = match right {
-        Object::Integer(n) => n,
+        Object::Float(n) => n,
         _ => return Err(format!("Right operand must be an integer {:?}", right)),
     };
     match operator {
         Object::Symbol(s) => match s.as_str() {
-            "+" => Ok(Object::Integer(left_val + right_val)),
-            "-" => Ok(Object::Integer(left_val - right_val)),
-            "*" => Ok(Object::Integer(left_val * right_val)),
-            "/" => Ok(Object::Integer(left_val / right_val)),
-            "mod" => Ok(Object::Integer(left_val % right_val)),
+            "+" => Ok(Object::Float(left_val + right_val)),
+            "-" => Ok(Object::Float(left_val - right_val)),
+            "*" => Ok(Object::Float(left_val * right_val)),
+            "/" => Ok(Object::Float(left_val / right_val)),
+            "mod" => Ok(Object::Float(left_val % right_val)),
             "<" => Ok(Object::Bool(left_val < right_val)),
             ">" => Ok(Object::Bool(left_val > right_val)),
             "=" => Ok(Object::Bool(left_val == right_val)),
@@ -436,7 +436,7 @@ fn eval_obj(obj: &Object, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> 
         Object::Lambda(_params, _body, _fenv) => Ok(Object::Void),
         Object::Bool(_) => Ok(obj.clone()),
         Object::String(s) => Ok(Object::String(s.clone())),
-        Object::Integer(n) => Ok(Object::Integer(*n)),
+        Object::Float(n) => Ok(Object::Float(*n)),
         Object::Symbol(s) => eval_symbol(s, env),
     }
 }
@@ -471,7 +471,7 @@ mod tests {
     fn test_simple_add() {
         let mut env = Rc::new(RefCell::new(Env::new()));
         let result = eval("(+ 1 2)", &mut env).unwrap();
-        assert_eq!(result, Object::Integer(3));
+        assert_eq!(result, Object::Float(3.0));
     }
 
     #[test]
@@ -479,11 +479,11 @@ mod tests {
         let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (define r 10)
-            (define pi 314)
+            (define pi 3.14)
             (* pi (* r r))
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer((314 * 10 * 10) as i64));
+        assert_eq!(result, Object::Float(314 as f64));
     }
 
     #[test]
@@ -491,13 +491,13 @@ mod tests {
         let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
             (define r 10)
-            (define pi 314)
+            (define pi 3.14)
             (define (area-of-circle r) 
                 (* pi (* r r)))
             (area-of-circle 10)
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer((314 * 10 * 10) as i64));
+        assert_eq!(result, Object::Float(314.0));
     }
 
     #[test]
@@ -512,7 +512,7 @@ mod tests {
             (sum x y z)
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(60 as i64));
+        assert_eq!(result, Object::Float(60.0));
     }
 
     #[test]
@@ -526,7 +526,7 @@ mod tests {
             (fibonacci 10)
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(55 as i64));
+        assert_eq!(result, Object::Float(55.0));
     }
 
     #[test]
@@ -539,7 +539,7 @@ mod tests {
         (sum (quote (1 2 3 4 5 6 7 8 9 10))) 
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(55 as i64));
+        assert_eq!(result, Object::Float(55.0));
     }
 
     #[test]
@@ -551,7 +551,7 @@ mod tests {
             (sqr 10)
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer((10 * 10) as i64));
+        assert_eq!(result, Object::Float(100.0));
     }
 
     #[test]
@@ -566,7 +566,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer((89) as i64));
+        assert_eq!(result, Object::Float(89.0));
     }
 
     #[test]
@@ -582,14 +582,14 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer((120) as i64));
+        assert_eq!(result, Object::Float(120.0));
     }
 
     #[test]
     fn test_circle_area_function() {
         let mut env = Rc::new(RefCell::new(Env::new()));
         let program = "
-            (define pi 314)
+            (define pi 3.14)
             (define r 10)
             (define sqr 
                 (lambda (r) (* r r)))
@@ -599,7 +599,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer((314 * 10 * 10) as i64));
+        assert_eq!(result, Object::Float(314.0));
     }
 
     #[test]
@@ -613,9 +613,9 @@ mod tests {
         assert_eq!(
             result,
             Object::List(vec![
-                Object::Integer(1),
-                Object::Integer(2),
-                Object::Integer(3)
+                Object::Float(1.0),
+                Object::Float(2.0),
+                Object::Float(3.0)
             ])
         );
     }
@@ -641,7 +641,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(5));
+        assert_eq!(result, Object::Float(5.0));
     }
 
     #[test]
@@ -654,7 +654,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(10));
+        assert_eq!(result, Object::Float(10.0));
     }
 
     #[test]
@@ -667,7 +667,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(15));
+        assert_eq!(result, Object::Float(15.0));
     }
 
     #[test]
@@ -732,7 +732,7 @@ mod tests {
         let result = eval(program, &mut env).unwrap();
         assert_eq!(
             result,
-            Object::List(vec![Object::Integer(10), Object::Integer(20),])
+            Object::List(vec![Object::Float(10.0), Object::Float(20.0),])
         );
     }
 
@@ -748,7 +748,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(100));
+        assert_eq!(result, Object::Float(100.0));
     }
 
     #[test]
@@ -762,7 +762,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(35));
+        assert_eq!(result, Object::Float(35.0));
     }
 
     #[test]
@@ -823,7 +823,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(20));
+        assert_eq!(result, Object::Float(20.0));
     }
 
     #[test]
@@ -845,7 +845,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(120));
+        assert_eq!(result, Object::Float(120.0));
     }
     #[test]
     fn test_cons_1() {
@@ -858,10 +858,10 @@ mod tests {
         assert_eq!(
             result,
             Object::List(vec![
-                Object::Integer(1),
-                Object::Integer(2),
-                Object::Integer(3),
-                Object::Integer(4)
+                Object::Float(1.0),
+                Object::Float(2.0),
+                Object::Float(3.0),
+                Object::Float(4.0)
             ])
         );
     }
@@ -928,6 +928,6 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer((15) as i64));
+        assert_eq!(result, Object::Float(15.0));
     }
 }

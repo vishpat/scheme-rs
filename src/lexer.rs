@@ -3,7 +3,7 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    Integer(i64),
+    Float(f64),
     Symbol(String),
     String(String),
     LParen,
@@ -13,7 +13,7 @@ pub enum Token {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Token::Integer(n) => write!(f, "{}", n),
+            Token::Float(n) => write!(f, "{}", n),
             Token::Symbol(s) => write!(f, "{}", s),
             Token::String(s) => write!(f, "{}", s),
             Token::LParen => write!(f, "("),
@@ -75,8 +75,8 @@ pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
                 }
 
                 if !word.is_empty() {
-                    tokens.push(if let Ok(i) = word.parse::<i64>() {
-                        Token::Integer(i)
+                    tokens.push(if let Ok(i) = word.parse::<f64>() {
+                        Token::Float(i)
                     } else {
                         Token::Symbol(word)
                     });
@@ -100,8 +100,8 @@ mod tests {
             vec![
                 Token::LParen,
                 Token::Symbol("+".to_string()),
-                Token::Integer(1),
-                Token::Integer(2),
+                Token::Float(1.0),
+                Token::Float(2.0),
                 Token::RParen,
             ]
         );
@@ -112,7 +112,7 @@ mod tests {
         let program = "
             (
                 (define r 10)
-                (define pi 314)
+                (define pi 3.14)
                 (* pi (* r r))
             )
         ";
@@ -124,12 +124,12 @@ mod tests {
                 Token::LParen,
                 Token::Symbol("define".to_string()),
                 Token::Symbol("r".to_string()),
-                Token::Integer(10),
+                Token::Float(10.0),
                 Token::RParen,
                 Token::LParen,
                 Token::Symbol("define".to_string()),
                 Token::Symbol("pi".to_string()),
-                Token::Integer(314),
+                Token::Float(3.14),
                 Token::RParen,
                 Token::LParen,
                 Token::Symbol("*".to_string()),

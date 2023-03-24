@@ -6,7 +6,7 @@ use std::rc::Rc;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     Void,
-    Integer(i64),
+    Float(f64),
     Bool(bool),
     String(String),
     Symbol(String),
@@ -18,7 +18,7 @@ impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Object::Void => write!(f, "Void"),
-            Object::Integer(n) => write!(f, "{}", n),
+            Object::Float(n) => write!(f, "{}", n),
             Object::Bool(b) => write!(f, "{}", b),
             Object::Symbol(s) => write!(f, "{}", s),
             Object::String(s) => write!(f, "{}", s),

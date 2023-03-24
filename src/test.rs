@@ -79,10 +79,10 @@ mod tests {
         assert_eq!(
             result,
             Object::List(vec![
-                Object::Integer(6),
-                Object::Integer(7),
-                Object::Integer(8),
-                Object::Integer(9)
+                Object::Float(6.0),
+                Object::Float(7.0),
+                Object::Float(8.0),
+                Object::Float(9.0)
             ])
         );
     }
@@ -108,6 +108,6 @@ mod tests {
             (sum (quote (1 2 3 4)))
         ";
         let result = eval::eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Integer(10));
+        assert_eq!(result, Object::Float(10.0));
     }
 }

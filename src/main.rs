@@ -28,7 +28,7 @@ fn repl() -> Result<(), Box<dyn std::error::Error>> {
         let val = eval::eval(input.as_ref(), &mut env)?;
         match val {
             Object::Void => {}
-            Object::Integer(n) => println!("{}", n),
+            Object::Float(n) => println!("{}", n),
             Object::Bool(b) => println!("{}", b),
             Object::Symbol(s) => println!("{}", s),
             Object::Lambda(params, body, _) => {

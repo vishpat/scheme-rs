@@ -49,7 +49,7 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
         }
         let t = token.unwrap();
         match t {
-            Token::Integer(n) => list.push(Object::Integer(n)),
+            Token::Float(n) => list.push(Object::Float(n)),
             Token::Symbol(s) => list.push(Object::Symbol(s)),
             Token::String(s) => list.push(Object::String(s)),
             Token::LParen => {
@@ -77,8 +77,8 @@ mod tests {
             list,
             Object::List(vec![Object::List(vec![
                 Object::Symbol("+".to_string()),
-                Object::Integer(1),
-                Object::Integer(2),
+                Object::Float(1.0),
+                Object::Float(2.0),
             ])])
         );
     }
@@ -87,7 +87,7 @@ mod tests {
     fn test_area_of_a_circle() {
         let program = "
                          (define r 10)
-                         (define pi 314)
+                         (define pi 3.14)
                          (* pi (* r r))
                        ";
         let list = parse(program).unwrap();
@@ -97,12 +97,12 @@ mod tests {
                 Object::List(vec![
                     Object::Symbol("define".to_string()),
                     Object::Symbol("r".to_string()),
-                    Object::Integer(10),
+                    Object::Float(10.0),
                 ]),
                 Object::List(vec![
                     Object::Symbol("define".to_string()),
                     Object::Symbol("pi".to_string()),
-                    Object::Integer(314),
+                    Object::Float(3.14),
                 ]),
                 Object::List(vec![
                     Object::Symbol("*".to_string()),
