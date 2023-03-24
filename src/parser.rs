@@ -49,7 +49,7 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
         }
         let t = token.unwrap();
         match t {
-            Token::Float(n) => list.push(Object::Float(n)),
+            Token::Number(n) => list.push(Object::Number(n)),
             Token::Symbol(s) => list.push(Object::Symbol(s)),
             Token::String(s) => list.push(Object::String(s)),
             Token::LParen => {
@@ -77,8 +77,8 @@ mod tests {
             list,
             Object::List(vec![Object::List(vec![
                 Object::Symbol("+".to_string()),
-                Object::Float(1.0),
-                Object::Float(2.0),
+                Object::Number(1.0),
+                Object::Number(2.0),
             ])])
         );
     }
@@ -97,12 +97,12 @@ mod tests {
                 Object::List(vec![
                     Object::Symbol("define".to_string()),
                     Object::Symbol("r".to_string()),
-                    Object::Float(10.0),
+                    Object::Number(10.0),
                 ]),
                 Object::List(vec![
                     Object::Symbol("define".to_string()),
                     Object::Symbol("pi".to_string()),
-                    Object::Float(3.14),
+                    Object::Number(3.14),
                 ]),
                 Object::List(vec![
                     Object::Symbol("*".to_string()),

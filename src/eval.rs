@@ -17,20 +17,20 @@ fn eval_binary_op(list: &Vec<Object>, env: &mut Rc<RefCell<Env>>) -> Result<Obje
     let left = eval_obj(&list[1].clone(), env)?;
     let right = eval_obj(&list[2].clone(), env)?;
     let left_val = match left {
-        Object::Float(n) => n,
+        Object::Number(n) => n,
         _ => return Err(format!("Left operand must be an integer {:?}", left)),
     };
     let right_val = match right {
-        Object::Float(n) => n,
+        Object::Number(n) => n,
         _ => return Err(format!("Right operand must be an integer {:?}", right)),
     };
     match operator {
         Object::Symbol(s) => match s.as_str() {
-            "+" => Ok(Object::Float(left_val + right_val)),
-            "-" => Ok(Object::Float(left_val - right_val)),
-            "*" => Ok(Object::Float(left_val * right_val)),
-            "/" => Ok(Object::Float(left_val / right_val)),
-            "mod" => Ok(Object::Float(left_val % right_val)),
+            "+" => Ok(Object::Number(left_val + right_val)),
+            "-" => Ok(Object::Number(left_val - right_val)),
+            "*" => Ok(Object::Number(left_val * right_val)),
+            "/" => Ok(Object::Number(left_val / right_val)),
+            "mod" => Ok(Object::Number(left_val % right_val)),
             "<" => Ok(Object::Bool(left_val < right_val)),
             ">" => Ok(Object::Bool(left_val > right_val)),
             "=" => Ok(Object::Bool(left_val == right_val)),
@@ -436,7 +436,7 @@ fn eval_obj(obj: &Object, env: &mut Rc<RefCell<Env>>) -> Result<Object, String> 
         Object::Lambda(_params, _body, _fenv) => Ok(Object::Void),
         Object::Bool(_) => Ok(obj.clone()),
         Object::String(s) => Ok(Object::String(s.clone())),
-        Object::Float(n) => Ok(Object::Float(*n)),
+        Object::Number(n) => Ok(Object::Number(*n)),
         Object::Symbol(s) => eval_symbol(s, env),
     }
 }
@@ -471,7 +471,7 @@ mod tests {
     fn test_simple_add() {
         let mut env = Rc::new(RefCell::new(Env::new()));
         let result = eval("(+ 1 2)", &mut env).unwrap();
-        assert_eq!(result, Object::Float(3.0));
+        assert_eq!(result, Object::Number(3.0));
     }
 
     #[test]
@@ -483,7 +483,7 @@ mod tests {
             (* pi (* r r))
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(314 as f64));
+        assert_eq!(result, Object::Number(314 as f64));
     }
 
     #[test]
@@ -497,7 +497,7 @@ mod tests {
             (area-of-circle 10)
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(314.0));
+        assert_eq!(result, Object::Number(314.0));
     }
 
     #[test]
@@ -512,7 +512,7 @@ mod tests {
             (sum x y z)
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(60.0));
+        assert_eq!(result, Object::Number(60.0));
     }
 
     #[test]
@@ -526,7 +526,7 @@ mod tests {
             (fibonacci 10)
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(55.0));
+        assert_eq!(result, Object::Number(55.0));
     }
 
     #[test]
@@ -539,7 +539,7 @@ mod tests {
         (sum (quote (1 2 3 4 5 6 7 8 9 10))) 
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(55.0));
+        assert_eq!(result, Object::Number(55.0));
     }
 
     #[test]
@@ -551,7 +551,7 @@ mod tests {
             (sqr 10)
         ";
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(100.0));
+        assert_eq!(result, Object::Number(100.0));
     }
 
     #[test]
@@ -566,7 +566,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(89.0));
+        assert_eq!(result, Object::Number(89.0));
     }
 
     #[test]
@@ -582,7 +582,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(120.0));
+        assert_eq!(result, Object::Number(120.0));
     }
 
     #[test]
@@ -599,7 +599,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(314.0));
+        assert_eq!(result, Object::Number(314.0));
     }
 
     #[test]
@@ -613,9 +613,9 @@ mod tests {
         assert_eq!(
             result,
             Object::List(vec![
-                Object::Float(1.0),
-                Object::Float(2.0),
-                Object::Float(3.0)
+                Object::Number(1.0),
+                Object::Number(2.0),
+                Object::Number(3.0)
             ])
         );
     }
@@ -641,7 +641,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(5.0));
+        assert_eq!(result, Object::Number(5.0));
     }
 
     #[test]
@@ -654,7 +654,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(10.0));
+        assert_eq!(result, Object::Number(10.0));
     }
 
     #[test]
@@ -667,7 +667,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(15.0));
+        assert_eq!(result, Object::Number(15.0));
     }
 
     #[test]
@@ -732,7 +732,7 @@ mod tests {
         let result = eval(program, &mut env).unwrap();
         assert_eq!(
             result,
-            Object::List(vec![Object::Float(10.0), Object::Float(20.0),])
+            Object::List(vec![Object::Number(10.0), Object::Number(20.0),])
         );
     }
 
@@ -748,7 +748,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(100.0));
+        assert_eq!(result, Object::Number(100.0));
     }
 
     #[test]
@@ -762,7 +762,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(35.0));
+        assert_eq!(result, Object::Number(35.0));
     }
 
     #[test]
@@ -823,7 +823,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(20.0));
+        assert_eq!(result, Object::Number(20.0));
     }
 
     #[test]
@@ -845,7 +845,7 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(120.0));
+        assert_eq!(result, Object::Number(120.0));
     }
     #[test]
     fn test_cons_1() {
@@ -858,10 +858,10 @@ mod tests {
         assert_eq!(
             result,
             Object::List(vec![
-                Object::Float(1.0),
-                Object::Float(2.0),
-                Object::Float(3.0),
-                Object::Float(4.0)
+                Object::Number(1.0),
+                Object::Number(2.0),
+                Object::Number(3.0),
+                Object::Number(4.0)
             ])
         );
     }
@@ -928,6 +928,6 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Float(15.0));
+        assert_eq!(result, Object::Number(15.0));
     }
 }

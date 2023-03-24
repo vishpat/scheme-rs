@@ -3,7 +3,7 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    Float(f64),
+    Number(f64),
     Symbol(String),
     String(String),
     LParen,
@@ -13,7 +13,7 @@ pub enum Token {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Token::Float(n) => write!(f, "{}", n),
+            Token::Number(n) => write!(f, "{}", n),
             Token::Symbol(s) => write!(f, "{}", s),
             Token::String(s) => write!(f, "{}", s),
             Token::LParen => write!(f, "("),
@@ -76,7 +76,7 @@ pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
 
                 if !word.is_empty() {
                     tokens.push(if let Ok(i) = word.parse::<f64>() {
-                        Token::Float(i)
+                        Token::Number(i)
                     } else {
                         Token::Symbol(word)
                     });
@@ -100,8 +100,8 @@ mod tests {
             vec![
                 Token::LParen,
                 Token::Symbol("+".to_string()),
-                Token::Float(1.0),
-                Token::Float(2.0),
+                Token::Number(1.0),
+                Token::Number(2.0),
                 Token::RParen,
             ]
         );
@@ -124,12 +124,12 @@ mod tests {
                 Token::LParen,
                 Token::Symbol("define".to_string()),
                 Token::Symbol("r".to_string()),
-                Token::Float(10.0),
+                Token::Number(10.0),
                 Token::RParen,
                 Token::LParen,
                 Token::Symbol("define".to_string()),
                 Token::Symbol("pi".to_string()),
-                Token::Float(3.14),
+                Token::Number(3.14),
                 Token::RParen,
                 Token::LParen,
                 Token::Symbol("*".to_string()),
