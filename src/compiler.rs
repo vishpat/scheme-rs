@@ -75,7 +75,6 @@ fn compile_list<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> Result<Flo
     _ => return Err(format!("Cannot compile list: {:?}", list)),
   }
 
-  Ok(compiler.context.f64_type().const_float(0.0))
 }
 
 pub fn compile<'a>(compiler: &'a Compiler, obj: &'a Object) -> Result<FloatValue<'a>, String> {
