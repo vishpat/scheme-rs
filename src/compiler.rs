@@ -4,7 +4,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
-use inkwell::values::{FloatValue, FunctionValue};
+use inkwell::values::{FloatValue, FloatMathValue, FunctionValue};
 
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
@@ -60,25 +60,14 @@ fn compile_list<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> Result<Flo
             _ => return Err(format!("Cannot compile rhs: {:?}", list[2])),
           };
 
-          match s.as_str() {
-            "+" => {
-              let value = compiler.builder.build_float_add(left, right, "addtmp");
-              compiler.builder.build_return(Some(&value));
-            }
-            "-" => {
-              let value = compiler.builder.build_float_sub(left, right, "subtmp");
-              compiler.builder.build_return(Some(&value));
-            }
-            "*" => {
-              let value = compiler.builder.build_float_mul(left, right, "multmp");
-              compiler.builder.build_return(Some(&value));
-            }
-            "/" => {
-              let value = compiler.builder.build_float_div(left, right, "divtmp");
-              compiler.builder.build_return(Some(&value));
-            }
+          let val = match s.as_str() {
+            "+" => compiler.builder.build_float_add(left, right, "addtmp"),
+            "-" => compiler.builder.build_float_sub(left, right, "subtmp"),
+            "*" => compiler.builder.build_float_mul(left, right, "multmp"),
+            "/" => compiler.builder.build_float_div(left, right, "divtmp"),
             _ => return Err(format!("Cannot compile list: {:?}", list)),
-          } 
+          };
+          return Ok(val);
         },
         _ => return Err(format!("Cannot compile list: {:?}", list)),
       }
@@ -93,7 +82,7 @@ pub fn compile<'a>(compiler: &'a Compiler, obj: &'a Object) -> Result<FloatValue
   let val = match obj {
     Object::Number(n) => compile_number(compiler, n),
     Object::List(list) => compile_list(compiler, list),
-    _ => Err(format!("xxx Cannot compile object: {:?}", obj))
+    _ => Err(format!("Cannot compile object: {:?}", obj))
   };
   val
 }

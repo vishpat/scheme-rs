@@ -67,15 +67,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let result = eval::eval(&contents, &mut env).unwrap();
         println!("{}", result);
     } else if args[1] == "-c" {
+        
+        let context = Context::create();
+        let compiler = Compiler::new(&context);
+        
         let mut file = File::open(&args[2]).expect("File not found");
         let mut contents = String::new();
         file.read_to_string(&mut contents)
             .expect("Could not read file");
         let obj = parse(&contents)?;
-        let context = Context::create();
-        let compiler = Compiler::new(&context);
-        let result = compile(&compiler, &obj);
-        println!("{:?}", result?);
+        match obj {
+            Object::List(list) => {
+                for obj in list {
+                    println!("{:?}", compile(&compiler, &obj)?);
+                }
+            }
+            _ => println!("{}", obj),
+        }
+        compiler.module.print_to_stderr(); 
     }
 
     Ok(())
