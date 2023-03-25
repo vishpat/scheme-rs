@@ -43,7 +43,7 @@ fn compile_list<'a>(
 
     match &list[0] {
         Object::Symbol(s) => match s.as_str() {
-            "+" | "-" | "*" | "/" => {
+            "+" | "-" | "*" | "/" | ">" | "<" | ">=" | "<=" | "==" | "!=" => {
                 if list.len() != 3 {
                     return Err(format!("Expected 2 arguments, found {}", list.len() - 1));
                 }
@@ -73,13 +73,11 @@ fn compile_list<'a>(
                             "cmptmp",
                         );
 
-                        compiler
-                            .builder
-                            .build_unsigned_int_to_float(
-                                cmp_as_intval,
-                                compiler.context.f64_type(),
-                                "booltmp",
-                            )
+                        compiler.builder.build_unsigned_int_to_float(
+                            cmp_as_intval,
+                            compiler.context.f64_type(),
+                            "booltmp",
+                        )
                     }
                     _ => return Err(format!("Cannot compile list: {:?}", list)),
                 };
