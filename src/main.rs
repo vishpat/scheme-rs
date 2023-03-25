@@ -4,6 +4,7 @@ mod lexer;
 mod object;
 mod parser;
 mod test;
+mod compiler;
 
 use linefeed::{Interface, ReadResult};
 use object::Object;

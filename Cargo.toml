@@ -14,3 +14,4 @@ Lisp interpreter in Rust
 
 [dependencies]
 linefeed = "0.6.0"
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm12-0"] }
