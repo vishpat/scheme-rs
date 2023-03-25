@@ -1,22 +1,22 @@
+mod compiler;
 mod env;
 mod eval;
 mod lexer;
 mod object;
 mod parser;
 mod test;
-mod compiler;
 
+use compiler::compile;
+use compiler::Compiler;
+use inkwell::context::Context;
 use linefeed::{Interface, ReadResult};
 use object::Object;
 use parser::parse;
-use compiler::Compiler;
-use compiler::compile;
 use std::cell::RefCell;
 use std::env::args;
 use std::fs::File;
 use std::io::Read;
 use std::rc::Rc;
-use inkwell::context::Context;
 
 const PROMPT: &str = "lisp-rs> ";
 
@@ -67,10 +67,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let result = eval::eval(&contents, &mut env).unwrap();
         println!("{}", result);
     } else if args[1] == "-c" {
-        
         let context = Context::create();
         let compiler = Compiler::new(&context);
-        
+
         let mut file = File::open(&args[2]).expect("File not found");
         let mut contents = String::new();
         file.read_to_string(&mut contents)
@@ -84,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             _ => println!("{}", obj),
         }
-        compiler.module.print_to_stderr(); 
+        compiler.module.print_to_stderr();
     }
 
     Ok(())
