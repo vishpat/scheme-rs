@@ -80,11 +80,10 @@ fn compile_list<'a>(
                                 compiler.context.f64_type(),
                                 "booltmp",
                             )
-                            .into()
                     }
                     _ => return Err(format!("Cannot compile list: {:?}", list)),
                 };
-                return Ok(val);
+                Ok(val)
             }
             _ => return Err(format!("Cannot compile list: {:?}", list)),
         },
