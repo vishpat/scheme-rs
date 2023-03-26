@@ -5,7 +5,6 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
 use inkwell::values::AnyValue;
-use inkwell::values::BasicValue;
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
 
@@ -68,8 +67,31 @@ fn compile_list<'a>(
 
                 let mut then_bb = compiler.context.append_basic_block(curr_func, "then");
                 let mut else_bb = compiler.context.append_basic_block(curr_func, "else");
+                let merge_bb = compiler
+                    .context
+                    .append_basic_block(curr_func, "if_continue");
 
-                Ok(compiler.context.f64_type().const_float(0.0))
+                compiler
+                    .builder
+                    .build_conditional_branch(cond_bool, then_bb, else_bb);
+
+                compiler.builder.position_at_end(then_bb);
+                let then_val = compile_obj(compiler, &list[2])?;
+                compiler.builder.build_unconditional_branch(merge_bb);
+                then_bb = compiler.builder.get_insert_block().unwrap();
+
+                compiler.builder.position_at_end(else_bb);
+                let else_val = compile_obj(compiler, &list[3])?;
+                compiler.builder.build_unconditional_branch(merge_bb);
+                else_bb = compiler.builder.get_insert_block().unwrap();
+
+                compiler.builder.position_at_end(merge_bb);
+                let phi = compiler
+                    .builder
+                    .build_phi(compiler.context.f64_type(), "iftmp");
+                phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
+
+                Ok(phi.as_basic_value().into_float_value())
             }
             "+" | "-" | "*" | "/" | ">" | "<" | ">=" | "<=" | "==" | "!=" => {
                 if list.len() != 3 {
