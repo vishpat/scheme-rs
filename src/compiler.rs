@@ -1,11 +1,15 @@
 use crate::object::*;
-
+use crate::parser::*;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
+use inkwell::values::AnyValue;
+use inkwell::values::BasicValue;
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
+
+const MAIN_FUNC_NAME: &str = "main";
 
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
@@ -43,6 +47,30 @@ fn compile_list<'a>(
 
     match &list[0] {
         Object::Symbol(s) => match s.as_str() {
+            "if" => {
+                if list.len() != 4 {
+                    return Err(format!("Expected 3 arguments, found {}", list.len() - 1));
+                }
+                let cond_ir = compile_obj(compiler, &list[1])?;
+                let cond_bool = compiler.builder.build_float_compare(
+                    inkwell::FloatPredicate::ONE,
+                    cond_ir,
+                    compiler.context.f64_type().const_zero(),
+                    "ifcond",
+                );
+
+                let curr_func = compiler
+                    .builder
+                    .get_insert_block()
+                    .unwrap()
+                    .get_parent()
+                    .expect("no parent");
+
+                let mut then_bb = compiler.context.append_basic_block(curr_func, "then");
+                let mut else_bb = compiler.context.append_basic_block(curr_func, "else");
+
+                Ok(compiler.context.f64_type().const_float(0.0))
+            }
             "+" | "-" | "*" | "/" | ">" | "<" | ">=" | "<=" | "==" | "!=" => {
                 if list.len() != 3 {
                     return Err(format!("Expected 2 arguments, found {}", list.len() - 1));
@@ -89,11 +117,43 @@ fn compile_list<'a>(
     }
 }
 
-pub fn compile<'a>(compiler: &'a Compiler, obj: &'a Object) -> Result<FloatValue<'a>, String> {
+fn compile_obj<'a>(compiler: &'a Compiler, obj: &'a Object) -> Result<FloatValue<'a>, String> {
     let val = match obj {
         Object::Number(n) => compile_number(compiler, n),
         Object::List(list) => compile_list(compiler, list),
         _ => Err(format!("Cannot compile object: {:?}", obj)),
     };
     val
+}
+
+pub fn compile_program(program: &str) -> Result<(), String> {
+    let obj = parse(program).unwrap_or_else(|e| panic!("Error parsing program: {}", e));
+    let context = Context::create();
+    let compiler = Compiler::new(&context);
+
+    let main_func = compiler.module.add_function(
+        MAIN_FUNC_NAME,
+        compiler.context.f64_type().fn_type(&[], false),
+        None,
+    );
+
+    let main_block = compiler.context.append_basic_block(main_func, "entry");
+    compiler.builder.position_at_end(main_block);
+
+    let mut main_val;
+    match obj {
+        Object::List(list) => {
+            for obj in list {
+                let val = compile_obj(&compiler, &obj)?;
+                main_val = val.as_any_value_enum().into_float_value();
+                compiler.builder.build_return(Some(&main_val));
+            }
+        }
+        _ => println!("{}", obj),
+    }
+
+    compiler.fpm.run_on(&main_func);
+    compiler.module.print_to_stderr();
+
+    Ok(())
 }

@@ -6,12 +6,9 @@ mod object;
 mod parser;
 mod test;
 
-use compiler::compile;
-use compiler::Compiler;
-use inkwell::context::Context;
+use compiler::compile_program;
 use linefeed::{Interface, ReadResult};
 use object::Object;
-use parser::parse;
 use std::cell::RefCell;
 use std::env::args;
 use std::fs::File;
@@ -67,23 +64,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let result = eval::eval(&contents, &mut env).unwrap();
         println!("{}", result);
     } else if args[1] == "-c" {
-        let context = Context::create();
-        let compiler = Compiler::new(&context);
-
         let mut file = File::open(&args[2]).expect("File not found");
         let mut contents = String::new();
         file.read_to_string(&mut contents)
             .expect("Could not read file");
-        let obj = parse(&contents)?;
-        match obj {
-            Object::List(list) => {
-                for obj in list {
-                    println!("{:?}", compile(&compiler, &obj)?);
-                }
-            }
-            _ => println!("{}", obj),
-        }
-        compiler.module.print_to_stderr();
+        compile_program(&contents).unwrap_or_else(|e| panic!("{}", e));
     }
 
     Ok(())
