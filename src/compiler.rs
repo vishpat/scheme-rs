@@ -116,12 +116,19 @@ fn compile_list<'a>(
                     "*" => compiler.builder.build_float_mul(left, right, "multmp"),
                     "/" => compiler.builder.build_float_div(left, right, "divtmp"),
                     ">" | "<" | ">=" | "<=" | "==" | "!=" => {
-                        let cmp_as_intval = compiler.builder.build_float_compare(
-                            FloatPredicate::ULT,
-                            left,
-                            right,
-                            "cmptmp",
-                        );
+                        let op = match s.as_str() {
+                            ">" => FloatPredicate::UGT,
+                            "<" => FloatPredicate::ULT,
+                            ">=" => FloatPredicate::UGE,
+                            "<=" => FloatPredicate::ULE,
+                            "==" => FloatPredicate::UEQ,
+                            "!=" => FloatPredicate::UNE,
+                            _ => return Err(format!("Cannot compile list: {:?}", list)),
+                        };
+
+                        let cmp_as_intval = compiler
+                            .builder
+                            .build_float_compare(op, left, right, "cmptmp");
 
                         compiler.builder.build_unsigned_int_to_float(
                             cmp_as_intval,
