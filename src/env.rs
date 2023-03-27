@@ -8,7 +8,7 @@ pub struct Env<T> {
     pub vars: HashMap<String, T>,
 }
 
-impl <T:Clone>Env<T> {
+impl<T: Clone> Env<T> {
     pub fn new() -> Self {
         {
             Env {

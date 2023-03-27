@@ -9,7 +9,10 @@ enum LogicalOp {
     Or,
 }
 
-fn eval_binary_op(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_binary_op(
+    list: &Vec<Object>,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 3 {
         return Err("Invalid number of arguments for infix operator".to_string());
     }
@@ -183,7 +186,10 @@ fn eval_null(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<O
     Ok(Object::Bool(list.is_empty()))
 }
 
-fn eval_list_keyword(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_list_keyword(
+    list: &[Object],
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     let mut new_list = Vec::new();
 
     for obj in list[1..].iter() {
@@ -192,7 +198,10 @@ fn eval_list_keyword(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Res
     Ok(Object::List(new_list))
 }
 
-fn eval_function_definition(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_function_definition(
+    list: &[Object],
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 3 {
         return Err(format!(
             "Invalid lambda {:?} did not find expected len of list",

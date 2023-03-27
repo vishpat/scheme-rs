@@ -1,3 +1,4 @@
+use crate::env::*;
 use crate::object::*;
 use crate::parser::*;
 use inkwell::builder::Builder;
@@ -5,8 +6,11 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
 use inkwell::values::AnyValue;
+use inkwell::values::AnyValueEnum;
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 const MAIN_FUNC_NAME: &str = "main";
 
@@ -15,6 +19,7 @@ pub struct Compiler<'ctx> {
     pub builder: Builder<'ctx>,
     pub module: Module<'ctx>,
     pub fpm: inkwell::passes::PassManager<FunctionValue<'ctx>>,
+    pub env: Rc<RefCell<Env<AnyValueEnum<'ctx>>>>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -22,12 +27,14 @@ impl<'ctx> Compiler<'ctx> {
         let builder = context.create_builder();
         let module = context.create_module("main");
         let fpm = PassManager::create(&module);
+        let env = Rc::new(RefCell::new(Env::new()));
 
         Self {
             context,
             builder,
             module,
             fpm,
+            env,
         }
     }
 }
@@ -44,8 +51,29 @@ fn compile_list<'a>(
         return Err("Cannot compile empty list".to_string());
     }
 
+    println!("Compiling list: {:?}", list);
+
     match &list[0] {
         Object::Symbol(s) => match s.as_str() {
+            "define" => {
+                if list.len() != 3 {
+                    return Err(format!("Expected 2 arguments, found {}", list.len() - 1));
+                }
+                let name = match &list[1] {
+                    Object::Symbol(s) => s,
+                    _ => return Err("Expected symbol".to_string()),
+                };
+                let val = compile_obj(compiler, &list[2])?;
+                let alloca = compiler
+                    .builder
+                    .build_alloca(compiler.context.f64_type(), name);
+                compiler.builder.build_store(alloca, val);
+                compiler
+                    .env
+                    .borrow_mut()
+                    .set(name, alloca.as_any_value_enum());
+                Ok(compiler.context.f64_type().const_zero())
+            }
             "if" => {
                 if list.len() != 4 {
                     return Err(format!("Expected 3 arguments, found {}", list.len() - 1));
@@ -100,12 +128,32 @@ fn compile_list<'a>(
 
                 let left = match &list[1] {
                     Object::Number(n) => compile_number(compiler, n)?,
+                    Object::Symbol(s) => {
+                        let val = compiler.env.borrow().get(s);
+                        match val {
+                            Some(v) => compiler
+                                .builder
+                                .build_load(v.into_pointer_value(), s)
+                                .into_float_value(),
+                            None => return Err(format!("Undefined symbol: {}", s)),
+                        }
+                    }
                     Object::List(l) => compile_list(compiler, l)?,
                     _ => return Err(format!("Cannot compile lhs: {:?}", list[1])),
                 };
 
                 let right = match &list[2] {
                     Object::Number(n) => compile_number(compiler, n)?,
+                    Object::Symbol(s) => {
+                        let val = compiler.env.borrow().get(s);
+                        match val {
+                            Some(v) => compiler
+                                .builder
+                                .build_load(v.into_pointer_value(), s)
+                                .into_float_value(),
+                            None => return Err(format!("Undefined symbol: {}", s)),
+                        }
+                    }
                     Object::List(l) => compile_list(compiler, l)?,
                     _ => return Err(format!("Cannot compile rhs: {:?}", list[2])),
                 };
@@ -123,7 +171,7 @@ fn compile_list<'a>(
                             "<=" => FloatPredicate::ULE,
                             "==" => FloatPredicate::UEQ,
                             "!=" => FloatPredicate::UNE,
-                            _ => return Err(format!("Cannot compile list: {:?}", list)),
+                            _ => return Err(format!("Cannot compile list 1.: {:?}", list)),
                         };
 
                         let cmp_as_intval = compiler
@@ -136,17 +184,18 @@ fn compile_list<'a>(
                             "booltmp",
                         )
                     }
-                    _ => return Err(format!("Cannot compile list: {:?}", list)),
+                    _ => return Err(format!("Cannot compile list 2.: {:?}", list)),
                 };
                 Ok(val)
             }
-            _ => return Err(format!("Cannot compile list: {:?}", list)),
+            _ => return Err(format!("Cannot compile list 3.: {:?}", list)),
         },
-        _ => return Err(format!("Cannot compile list: {:?}", list)),
+        _ => return Err(format!("Cannot compile list 4.: {:?}", list)),
     }
 }
 
 fn compile_obj<'a>(compiler: &'a Compiler, obj: &'a Object) -> Result<FloatValue<'a>, String> {
+    println!("Compiling Object: {:?}", obj);
     let val = match obj {
         Object::Number(n) => compile_number(compiler, n),
         Object::List(list) => compile_list(compiler, list),
