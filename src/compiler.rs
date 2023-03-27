@@ -222,19 +222,15 @@ pub fn compile_program(program: &str) -> Result<(), String> {
     let main_block = compiler.context.append_basic_block(main_func, "entry");
     compiler.builder.position_at_end(main_block);
 
-    let mut main_val;
     match obj {
         Object::List(list) => {
             for obj in list {
-                let val = compile_obj(&compiler, &obj)?;
-                main_val = val.as_any_value_enum().into_float_value();
-                compiler.builder.build_return(Some(&main_val));
+                compile_obj(&compiler, &obj)?;
             }
         }
         _ => debug!("{}", obj),
     }
 
-    compiler.fpm.run_on(&main_func);
     compiler.module.print_to_stderr();
 
     Ok(())
