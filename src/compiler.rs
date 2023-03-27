@@ -7,6 +7,7 @@ use inkwell::module::Module;
 use inkwell::passes::PassManager;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
+use inkwell::values::PointerValue;
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
 use log::debug;
@@ -20,7 +21,7 @@ pub struct Compiler<'ctx> {
     pub builder: Builder<'ctx>,
     pub module: Module<'ctx>,
     pub fpm: inkwell::passes::PassManager<FunctionValue<'ctx>>,
-    pub env: Rc<RefCell<Env<AnyValueEnum<'ctx>>>>,
+    pub env: Rc<RefCell<Env<PointerValue<'ctx>>>>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -44,6 +45,16 @@ fn compile_number<'a>(compiler: &'a Compiler, n: &'a f64) -> Result<FloatValue<'
     Ok(compiler.context.f64_type().const_float(*n))
 }
 
+fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueEnum<'ctx>, String> {
+    let val = compiler.env.borrow().get(sym);
+    debug!("Processing symbol {} val: {:?}", sym, val);
+    let x = match val {
+        Some(v) => compiler.builder.build_load(v, sym),
+        None => return Err(format!("Undefined symbol: {}", sym)),
+    };
+    Ok(x.as_any_value_enum())
+}
+
 fn compile_list<'a>(
     compiler: &'a Compiler,
     list: &'a Vec<Object>,
@@ -65,15 +76,12 @@ fn compile_list<'a>(
                     _ => return Err("Expected symbol".to_string()),
                 };
                 let val = compile_obj(compiler, &list[2])?;
-                let alloca = compiler
+                let ptr = compiler
                     .builder
                     .build_alloca(compiler.context.f64_type(), name);
-                compiler.builder.build_store(alloca, val);
-                compiler
-                    .env
-                    .borrow_mut()
-                    .set(name, alloca.as_any_value_enum());
-                debug!("Defined {} in env with {:?}", name, alloca);
+                compiler.builder.build_store(ptr, val);
+                compiler.env.borrow_mut().set(name, ptr);
+                debug!("Defined {} in env with {:?}", name, ptr);
                 Ok(compiler.context.f64_type().const_zero())
             }
             "if" => {
@@ -131,14 +139,10 @@ fn compile_list<'a>(
                 let left = match &list[1] {
                     Object::Number(n) => compile_number(compiler, n)?,
                     Object::Symbol(s) => {
-                        let val = compiler.env.borrow().get(s);
-                        debug!("Found LHS {} val: {:?}", s, val);
+                        let val = process_symbol(compiler, s)?;
                         match val {
-                            Some(v) => compiler
-                                .builder
-                                .build_load(v.into_pointer_value(), s)
-                                .into_float_value(),
-                            None => return Err(format!("Undefined symbol: {}", s)),
+                            AnyValueEnum::FloatValue(v) => v,
+                            _ => return Err(format!("Cannot compile lhs: {:?}", list[1])),
                         }
                     }
                     Object::List(l) => compile_list(compiler, l)?,
@@ -148,14 +152,10 @@ fn compile_list<'a>(
                 let right = match &list[2] {
                     Object::Number(n) => compile_number(compiler, n)?,
                     Object::Symbol(s) => {
-                        let val = compiler.env.borrow().get(s);
-                        debug!("Found RHS {} val: {:?}", s, val);
+                        let val = process_symbol(compiler, s)?;
                         match val {
-                            Some(v) => compiler
-                                .builder
-                                .build_load(v.into_pointer_value(), s)
-                                .into_float_value(),
-                            None => return Err(format!("Undefined symbol: {}", s)),
+                            AnyValueEnum::FloatValue(v) => v,
+                            _ => return Err(format!("Cannot compile lhs: {:?}", list[1])),
                         }
                     }
                     Object::List(l) => compile_list(compiler, l)?,
