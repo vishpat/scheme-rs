@@ -16,12 +16,22 @@ use std::rc::Rc;
 
 const MAIN_FUNC_NAME: &str = "main";
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DataType{
+    Number,
+}
+
+#[derive(Debug, Clone)]
+pub struct Pointer<'ctx> {
+    pub ptr: PointerValue<'ctx>,
+    pub data_type: DataType,
+}
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
     pub builder: Builder<'ctx>,
     pub module: Module<'ctx>,
     pub fpm: inkwell::passes::PassManager<FunctionValue<'ctx>>,
-    pub env: Rc<RefCell<Env<PointerValue<'ctx>>>>,
+    pub env: Rc<RefCell<Env<Pointer<'ctx>>>>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -47,10 +57,16 @@ fn compile_number<'a>(compiler: &'a Compiler, n: &'a f64) -> Result<FloatValue<'
 
 fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueEnum<'ctx>, String> {
     let val = compiler.env.borrow().get(sym);
-    let f64_type = compiler.context.f64_type();
     debug!("Processing symbol {} val: {:?}", sym, val);
     let x = match val {
-        Some(v) => compiler.builder.build_load(f64_type, v, sym),
+        Some(p) => {
+            if p.data_type == DataType::Number {
+                let typ = compiler.context.f64_type(); 
+                compiler.builder.build_load(typ, p.ptr, sym)
+            } else {
+                return Err(format!("Cannot load symbol: {}", sym));
+            }
+        },
         None => return Err(format!("Undefined symbol: {}", sym)),
     };
     Ok(x.as_any_value_enum())
@@ -81,8 +97,7 @@ fn compile_list<'a>(
                     .builder
                     .build_alloca(compiler.context.f64_type(), name);
                 compiler.builder.build_store(ptr, val);
-                compiler.env.borrow_mut().set(name, ptr);
-                debug!("Defined {} in env with {:?}", name, ptr);
+                compiler.env.borrow_mut().set(name, Pointer { ptr, data_type: DataType::Number });
                 Ok(compiler.context.f64_type().const_zero())
             }
             "if" => {
