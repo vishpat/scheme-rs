@@ -15,6 +15,8 @@ use std::fs::File;
 use std::io::Read;
 use std::rc::Rc;
 
+extern crate env_logger;
+
 const PROMPT: &str = "lisp-rs> ";
 
 fn repl() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,6 +53,8 @@ fn repl() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+
     let args: Vec<String> = args().collect();
 
     if args.len() < 2 {

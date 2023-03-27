@@ -9,6 +9,7 @@ use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
+use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -51,7 +52,7 @@ fn compile_list<'a>(
         return Err("Cannot compile empty list".to_string());
     }
 
-    println!("Compiling list: {:?}", list);
+    debug!("Compiling list: {:?}", list);
 
     match &list[0] {
         Object::Symbol(s) => match s.as_str() {
@@ -72,6 +73,7 @@ fn compile_list<'a>(
                     .env
                     .borrow_mut()
                     .set(name, alloca.as_any_value_enum());
+                debug!("Defined {} in env with {:?}", name, alloca);
                 Ok(compiler.context.f64_type().const_zero())
             }
             "if" => {
@@ -130,6 +132,7 @@ fn compile_list<'a>(
                     Object::Number(n) => compile_number(compiler, n)?,
                     Object::Symbol(s) => {
                         let val = compiler.env.borrow().get(s);
+                        debug!("Found LHS {} val: {:?}", s, val);
                         match val {
                             Some(v) => compiler
                                 .builder
@@ -146,6 +149,7 @@ fn compile_list<'a>(
                     Object::Number(n) => compile_number(compiler, n)?,
                     Object::Symbol(s) => {
                         let val = compiler.env.borrow().get(s);
+                        debug!("Found RHS {} val: {:?}", s, val);
                         match val {
                             Some(v) => compiler
                                 .builder
@@ -195,7 +199,7 @@ fn compile_list<'a>(
 }
 
 fn compile_obj<'a>(compiler: &'a Compiler, obj: &'a Object) -> Result<FloatValue<'a>, String> {
-    println!("Compiling Object: {:?}", obj);
+    debug!("Compiling Object: {:?}", obj);
     let val = match obj {
         Object::Number(n) => compile_number(compiler, n),
         Object::List(list) => compile_list(compiler, list),
@@ -227,7 +231,7 @@ pub fn compile_program(program: &str) -> Result<(), String> {
                 compiler.builder.build_return(Some(&main_val));
             }
         }
-        _ => println!("{}", obj),
+        _ => debug!("{}", obj),
     }
 
     compiler.fpm.run_on(&main_func);
