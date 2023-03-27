@@ -47,9 +47,10 @@ fn compile_number<'a>(compiler: &'a Compiler, n: &'a f64) -> Result<FloatValue<'
 
 fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueEnum<'ctx>, String> {
     let val = compiler.env.borrow().get(sym);
+    let f64_type = compiler.context.f64_type();
     debug!("Processing symbol {} val: {:?}", sym, val);
     let x = match val {
-        Some(v) => compiler.builder.build_load(v, sym),
+        Some(v) => compiler.builder.build_load(f64_type, v, sym),
         None => return Err(format!("Undefined symbol: {}", sym)),
     };
     Ok(x.as_any_value_enum())
