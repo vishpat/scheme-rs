@@ -8,7 +8,7 @@ use inkwell::passes::PassManager;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::PointerValue;
-use inkwell::values::{FloatValue, FunctionValue};
+use inkwell::values::{BasicValueEnum, FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
 use log::debug;
 use std::cell::RefCell;
@@ -17,7 +17,7 @@ use std::rc::Rc;
 const MAIN_FUNC_NAME: &str = "main";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DataType{
+pub enum DataType {
     Number,
 }
 
@@ -61,12 +61,12 @@ fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueE
     let x = match val {
         Some(p) => {
             if p.data_type == DataType::Number {
-                let typ = compiler.context.f64_type(); 
+                let typ = compiler.context.f64_type();
                 compiler.builder.build_load(typ, p.ptr, sym)
             } else {
                 return Err(format!("Cannot load symbol: {}", sym));
             }
-        },
+        }
         None => return Err(format!("Undefined symbol: {}", sym)),
     };
     Ok(x.as_any_value_enum())
@@ -97,7 +97,13 @@ fn compile_list<'a>(
                     .builder
                     .build_alloca(compiler.context.f64_type(), name);
                 compiler.builder.build_store(ptr, val);
-                compiler.env.borrow_mut().set(name, Pointer { ptr, data_type: DataType::Number });
+                compiler.env.borrow_mut().set(
+                    name,
+                    Pointer {
+                        ptr,
+                        data_type: DataType::Number,
+                    },
+                );
                 Ok(compiler.context.f64_type().const_zero())
             }
             "if" => {
@@ -238,15 +244,22 @@ pub fn compile_program(program: &str) -> Result<(), String> {
     let main_block = compiler.context.append_basic_block(main_func, "entry");
     compiler.builder.position_at_end(main_block);
 
+    let mut main_val = None;
     match obj {
         Object::List(list) => {
             for obj in list {
-                compile_obj(&compiler, &obj)?;
+                let val = compile_obj(&compiler, &obj)?;
+                main_val = val.as_any_value_enum().into_float_value().get_constant();
             }
         }
         _ => debug!("{}", obj),
     }
+    let ret_val = main_val
+        .map(|v| BasicValueEnum::FloatValue(compiler.context.f64_type().const_float(v.0)))
+        .unwrap();
 
+    compiler.builder.build_return(Some(&ret_val));
+    compiler.fpm.run_on(&main_func);
     compiler.module.print_to_stderr();
 
     Ok(())
