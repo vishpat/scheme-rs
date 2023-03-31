@@ -32,7 +32,7 @@ pub struct Compiler<'ctx> {
     pub builder: Builder<'ctx>,
     pub module: Module<'ctx>,
     pub fpm: inkwell::passes::PassManager<FunctionValue<'ctx>>,
-    pub env: Rc<RefCell<Env<Pointer<'ctx>>>>,
+    pub env: Vec<Env<Pointer<'ctx>>>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -40,7 +40,7 @@ impl<'ctx> Compiler<'ctx> {
         let builder = context.create_builder();
         let module = context.create_module("main");
         let fpm = PassManager::create(&module);
-        let env = Rc::new(RefCell::new(Env::new()));
+        let env = vec![Env::new()];
 
         Self {
             context,
@@ -50,6 +50,27 @@ impl<'ctx> Compiler<'ctx> {
             env,
         }
     }
+
+    pub fn add_symbol_to_current_env(&mut self, name: &str, ptr: Pointer<'ctx>) {
+        self.env.last_mut().unwrap().set(name, ptr);
+    }
+
+    pub fn get_symbol_value(&self, name: &str) -> Option<Pointer<'ctx>> {
+        for env in self.env.iter().rev() {
+            if let Some(val) = env.get(name) {
+                return Some(val.clone());
+            }
+        }
+        None 
+    }
+
+    pub fn push_new_env(&mut self) {
+        self.env.push(Env::new());
+    }
+
+    pub fn pop_env(&mut self) {
+        self.env.pop();
+    }
 }
 
 fn compile_number<'a>(compiler: &'a Compiler, n: &'a f64) -> Result<FloatValue<'a>, String> {
@@ -57,7 +78,7 @@ fn compile_number<'a>(compiler: &'a Compiler, n: &'a f64) -> Result<FloatValue<'
 }
 
 fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueEnum<'ctx>, String> {
-    let val = compiler.env.borrow().get(sym);
+    let val = compiler.get_symbol_value(sym);
     debug!("Processing symbol {} val: {:?}", sym, val);
     let x = match val {
         Some(p) => {
@@ -136,7 +157,7 @@ fn compile_define_obj<'a>(
     let ptr = compiler.builder.build_alloca(compiler.context.f64_type(), name);
     compiler.builder.build_store(ptr, val);
 
-    compiler.env.borrow_mut().set(name, Pointer { ptr, data_type: DataType::Number });
+    compiler.add_symbol_to_current_env(name, Pointer { ptr, data_type: DataType::Number });
 
     Ok(compiler.context.f64_type().const_zero())
 }
