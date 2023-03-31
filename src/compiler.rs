@@ -73,6 +73,74 @@ fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueE
     Ok(x.as_any_value_enum())
 }
 
+fn compile_function_prototype<'a>(
+    compiler: &'a Compiler,
+    func_proto: &'a Vec<Object>,
+) -> Result<FunctionValue<'a>, String> {
+    let func_name = match &func_proto[0] {
+        Object::Symbol(s) => s,
+        _ => return Err("Expected symbol".to_string()),
+    };
+
+    let func_params = match &func_proto[1] {
+        Object::List(l) => l,
+        _ => return Err("Expected list".to_string()),
+    };
+
+    let func_type = compiler.context.f64_type().fn_type(
+        &vec![compiler.context.f64_type().into(); func_params.len()],
+        false,
+    );
+    let func = compiler.module.add_function(func_name, func_type, None);
+    func.get_param_iter().enumerate().for_each(|(i, p)| {
+        p.set_name(&func_params[i].to_string());
+    });
+
+    Ok(func)
+}
+
+fn compile_define_function<'a>(
+    compiler: &'a Compiler,
+    func_proto: &'a Vec<Object>,
+    func_body: &'a Object,
+) -> Result<FloatValue<'a>, String> {
+    let func = match compile_function_prototype(compiler, func_proto) {
+        Ok(func) => func,
+        Err(e) => return Err(e),
+    };
+
+    let entry = compiler.context.append_basic_block(func, "entry");
+    compiler.builder.position_at_end(entry);
+
+    Ok(compiler.context.f64_type().const_zero())
+}
+
+fn compile_define_obj<'a>(
+    compiler: &'a Compiler,
+    list: &'a Vec<Object>
+) -> Result<FloatValue<'a>, String> {
+    if list.len() != 2 {
+        return Err(format!("Expected 1 argument, found {}", list.len() - 1));
+    }
+
+    let name = match &list[0] {
+        Object::Symbol(s) => s,
+        _ => return Err("Expected symbol".to_string()),
+    };
+
+    let val = match &list[1] {
+        Object::Number(n) => compile_number(compiler, n),
+        _ => return Err("Expected number".to_string()),
+    }?;
+
+    let ptr = compiler.builder.build_alloca(compiler.context.f64_type(), name);
+    compiler.builder.build_store(ptr, val);
+
+    compiler.env.borrow_mut().set(name, Pointer { ptr, data_type: DataType::Number });
+
+    Ok(compiler.context.f64_type().const_zero())
+}
+
 fn compile_define<'a>(
     compiler: &'a Compiler,
     list: &'a Vec<Object>,
@@ -80,23 +148,12 @@ fn compile_define<'a>(
     if list.len() != 3 {
         return Err(format!("Expected 2 arguments, found {}", list.len() - 1));
     }
-    let name = match &list[1] {
-        Object::Symbol(s) => s,
+
+    match &list[1] {
+        Object::Symbol(s) => compile_define_obj(compiler, &list),
+        Object::List(l) => compile_define_function(compiler, l, &list[2]),
         _ => return Err("Expected symbol".to_string()),
-    };
-    let val = compile_obj(compiler, &list[2])?;
-    let ptr = compiler
-        .builder
-        .build_alloca(compiler.context.f64_type(), name);
-    compiler.builder.build_store(ptr, val);
-    compiler.env.borrow_mut().set(
-        name,
-        Pointer {
-            ptr,
-            data_type: DataType::Number,
-        },
-    );
-    Ok(compiler.context.f64_type().const_zero())
+    }
 }
 
 fn compile_if<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> Result<FloatValue<'a>, String> {
