@@ -75,7 +75,7 @@ fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueE
 
 fn compile_function_prototype<'a>(
     compiler: &'a Compiler,
-    func_proto: &'a Vec<Object>,
+    func_proto: &'a [Object],
 ) -> Result<FunctionValue<'a>, String> {
     let func_name = match &func_proto[0] {
         Object::Symbol(s) => s,
@@ -101,8 +101,8 @@ fn compile_function_prototype<'a>(
 
 fn compile_define_function<'a>(
     compiler: &'a Compiler,
-    func_proto: &'a Vec<Object>,
-    func_body: &'a Object,
+    func_proto: &'a [Object],
+    _func_body: &'a Object
 ) -> Result<FloatValue<'a>, String> {
     let func = match compile_function_prototype(compiler, func_proto) {
         Ok(func) => func,
@@ -150,9 +150,9 @@ fn compile_define<'a>(
     }
 
     match &list[1] {
-        Object::Symbol(s) => compile_define_obj(compiler, &list),
+        Object::Symbol(_) => compile_define_obj(compiler, list),
         Object::List(l) => compile_define_function(compiler, l, &list[2]),
-        _ => return Err("Expected symbol".to_string()),
+        _ => Err("Expected symbol".to_string()),
     }
 }
 
