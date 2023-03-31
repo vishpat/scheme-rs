@@ -10,7 +10,7 @@ pub enum Object {
     Bool(bool),
     String(String),
     Symbol(String),
-    Lambda(Vec<String>, Vec<Object>, Rc<RefCell<Env>>),
+    Lambda(Vec<String>, Vec<Object>, Rc<RefCell<Env<Object>>>),
     List(Vec<Object>),
 }
 
