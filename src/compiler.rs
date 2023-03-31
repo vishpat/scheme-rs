@@ -11,9 +11,9 @@ use inkwell::values::PointerValue;
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
 use log::debug;
-use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 const MAIN_FUNC_NAME: &str = "main";
 
@@ -27,12 +27,44 @@ pub struct Pointer<'ctx> {
     pub ptr: PointerValue<'ctx>,
     pub data_type: DataType,
 }
+
+pub struct SymTables<'ctx> {
+    pub tables: Vec<Env<Pointer<'ctx>>>,
+}
+
+impl <'ctx> SymTables<'ctx> {
+    pub fn new() -> Self {
+        Self { tables: vec![Env::new()] }
+    }
+
+    pub fn push_new_sym_table(&mut self) {
+        self.tables.push(Env::new());
+    }
+
+    pub fn pop_sym_table(&mut self) {
+        self.tables.pop();
+    }
+
+    pub fn add_symbol_value(&mut self, name: &str, ptr: Pointer<'ctx>) {
+        self.tables.last_mut().unwrap().set(name, ptr);
+    }
+
+    pub fn get_symbol_value(&self, name: &str) -> Option<Pointer<'ctx>> {
+        for env in self.tables.iter().rev() {
+            if let Some(val) = env.get(name) {
+                return Some(val.clone());
+            }
+        }
+        None 
+    }
+}
+
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
     pub builder: Builder<'ctx>,
     pub module: Module<'ctx>,
     pub fpm: inkwell::passes::PassManager<FunctionValue<'ctx>>,
-    pub env: Vec<Env<Pointer<'ctx>>>,
+    pub sym_tables: Rc<RefCell<SymTables<'ctx>>>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -40,36 +72,15 @@ impl<'ctx> Compiler<'ctx> {
         let builder = context.create_builder();
         let module = context.create_module("main");
         let fpm = PassManager::create(&module);
-        let env = vec![Env::new()];
+        let sym_tables = Rc::new(RefCell::new(SymTables::new()));
 
         Self {
             context,
             builder,
             module,
             fpm,
-            env,
+            sym_tables,
         }
-    }
-
-    pub fn add_symbol_to_current_env(&mut self, name: &str, ptr: Pointer<'ctx>) {
-        self.env.last_mut().unwrap().set(name, ptr);
-    }
-
-    pub fn get_symbol_value(&self, name: &str) -> Option<Pointer<'ctx>> {
-        for env in self.env.iter().rev() {
-            if let Some(val) = env.get(name) {
-                return Some(val.clone());
-            }
-        }
-        None 
-    }
-
-    pub fn push_new_env(&mut self) {
-        self.env.push(Env::new());
-    }
-
-    pub fn pop_env(&mut self) {
-        self.env.pop();
     }
 }
 
@@ -78,7 +89,7 @@ fn compile_number<'a>(compiler: &'a Compiler, n: &'a f64) -> Result<FloatValue<'
 }
 
 fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueEnum<'ctx>, String> {
-    let val = compiler.get_symbol_value(sym);
+    let val = compiler.sym_tables.borrow().get_symbol_value(sym);
     debug!("Processing symbol {} val: {:?}", sym, val);
     let x = match val {
         Some(p) => {
@@ -123,15 +134,44 @@ fn compile_function_prototype<'a>(
 fn compile_define_function<'a>(
     compiler: &'a Compiler,
     func_proto: &'a [Object],
-    _func_body: &'a Object
+    func_body: &'a Object
 ) -> Result<FloatValue<'a>, String> {
     let func = match compile_function_prototype(compiler, func_proto) {
         Ok(func) => func,
         Err(e) => return Err(e),
     };
 
+    let func_body = match func_body {
+        Object::List(l) => l,
+        _ => return Err("Expected list".to_string()),
+    };
+
     let entry = compiler.context.append_basic_block(func, "entry");
     compiler.builder.position_at_end(entry);
+    compiler.sym_tables.borrow_mut().push_new_sym_table();
+
+    for (i, p) in func.get_param_iter().enumerate() {
+        let name = match &func_proto[1] {
+            Object::List(l) => &l[i],
+            _ => return Err("Expected list".to_string()),
+        };
+        let name = match name {
+            Object::Symbol(s) => s,
+            _ => return Err("Expected symbol".to_string()),
+        };
+        let ptr = compiler.builder.build_alloca(compiler.context.f64_type(), name);
+        compiler.builder.build_store(ptr, p);
+        compiler.sym_tables.borrow_mut().add_symbol_value(name, Pointer {
+            ptr,
+            data_type: DataType::Number,
+        });
+    }
+
+    for stmt in func_body.iter() {
+        compile_obj(compiler, stmt)?;
+    }
+
+    compiler.sym_tables.borrow_mut().pop_sym_table();
 
     Ok(compiler.context.f64_type().const_zero())
 }
@@ -157,7 +197,7 @@ fn compile_define_obj<'a>(
     let ptr = compiler.builder.build_alloca(compiler.context.f64_type(), name);
     compiler.builder.build_store(ptr, val);
 
-    compiler.add_symbol_to_current_env(name, Pointer { ptr, data_type: DataType::Number });
+    compiler.sym_tables.borrow_mut().add_symbol_value(name, Pointer { ptr, data_type: DataType::Number });
 
     Ok(compiler.context.f64_type().const_zero())
 }
