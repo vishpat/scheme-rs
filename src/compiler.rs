@@ -8,10 +8,11 @@ use inkwell::passes::PassManager;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::PointerValue;
-use inkwell::values::{BasicValueEnum, FloatValue, FunctionValue};
+use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
 use log::debug;
 use std::cell::RefCell;
+use std::path::Path;
 use std::rc::Rc;
 
 const MAIN_FUNC_NAME: &str = "main";
@@ -252,33 +253,37 @@ pub fn compile_program(program: &str) -> Result<(), String> {
 
     let main_func = compiler.module.add_function(
         MAIN_FUNC_NAME,
-        compiler.context.f64_type().fn_type(&[], false),
+        compiler.context.i64_type().fn_type(&[], false),
         None,
     );
 
     let main_block = compiler.context.append_basic_block(main_func, "entry");
     compiler.builder.position_at_end(main_block);
 
-    let mut main_val = None;
     match obj {
         Object::List(list) => {
+            let list_len = list.len();
+            let mut idx = 0;
             for obj in list {
                 let val = compile_obj(&compiler, &obj)?;
                 debug!("Got float value: {:?}", val);
-                main_val = val.as_any_value_enum().into_float_value().get_constant();
+                let int_val = compiler.builder.build_float_to_signed_int(
+                    val,
+                    compiler.context.i64_type(),
+                    "inttmp",
+                );
+                idx += 1;
+                if idx == list_len {
+                    compiler.builder.build_return(Some(&int_val));
+                }
             }
         }
         _ => debug!("{}", obj),
     }
-    let ret_val = main_val
-        .map(|v| BasicValueEnum::FloatValue(compiler.context.f64_type().const_float(v.0)))
-        .unwrap_or_else( || BasicValueEnum::FloatValue(
-            compiler.context.f64_type().const_float(0.0),
-        ));
 
-    compiler.builder.build_return(Some(&ret_val));
     compiler.fpm.run_on(&main_func);
     compiler.module.print_to_stderr();
+    compiler.module.print_to_file(Path::new("main.ll")).unwrap();
 
     Ok(())
 }
