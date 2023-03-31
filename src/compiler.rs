@@ -46,6 +46,7 @@ impl <'ctx> SymTables<'ctx> {
     }
 
     pub fn add_symbol_value(&mut self, name: &str, ptr: Pointer<'ctx>) {
+        debug!("Adding symbol {} val: {:?}", name, ptr);
         self.tables.last_mut().unwrap().set(name, ptr);
     }
 
@@ -167,12 +168,22 @@ fn compile_define_function<'a>(
         });
     }
 
+    let mut idx = 0;
+    let stmt_count = func_body.len();
     for stmt in func_body.iter() {
-        compile_obj(compiler, stmt)?;
+        let val = compile_obj(compiler, stmt)?;
+        idx += 1;
+        if idx == stmt_count {
+            let int_val = compiler.builder.build_float_to_signed_int(
+                    val,
+                    compiler.context.i64_type(),
+                    "inttmp",
+                );
+            compiler.builder.build_return(Some(&int_val));
+        }
     }
 
     compiler.sym_tables.borrow_mut().pop_sym_table();
-
     Ok(compiler.context.f64_type().const_zero())
 }
 
@@ -180,18 +191,19 @@ fn compile_define_obj<'a>(
     compiler: &'a Compiler,
     list: &'a Vec<Object>
 ) -> Result<FloatValue<'a>, String> {
-    if list.len() != 2 {
-        return Err(format!("Expected 1 argument, found {}", list.len() - 1));
+    if list.len() != 3 {
+        return Err(format!("Expected three arguments, found {} {:?}", list.len(), list));
     }
 
-    let name = match &list[0] {
+    let name = match &list[1] {
         Object::Symbol(s) => s,
         _ => return Err("Expected symbol".to_string()),
     };
 
-    let val = match &list[1] {
+    let val = match &list[2] {
         Object::Number(n) => compile_number(compiler, n),
-        _ => return Err("Expected number".to_string()),
+        Object::List(l) => compile_list(compiler, l),
+        _ => return Err(format!("Expected number, found: {}", list[1].to_string())),
     }?;
 
     let ptr = compiler.builder.build_alloca(compiler.context.f64_type(), name);
@@ -209,10 +221,28 @@ fn compile_define<'a>(
     if list.len() != 3 {
         return Err(format!("Expected 2 arguments, found {}", list.len() - 1));
     }
+    debug!("Processing define: {:?}", list);
 
-    match &list[1] {
-        Object::Symbol(_) => compile_define_obj(compiler, list),
-        Object::List(l) => compile_define_function(compiler, l, &list[2]),
+    let mut func_proto = Vec::new(); 
+    let is_function  = match &list[1] {
+        Object::List(proto) => {
+            func_proto = proto.clone();
+            true
+        },
+        _ => false,
+    };
+
+    match &list[2] {
+        Object::Number(_) => compile_define_obj(compiler, list),
+        Object::List(_) => 
+        {
+            if is_function {
+                compile_define_function(compiler, &func_proto, &list[2])?;
+                Ok(compiler.context.f64_type().const_zero())
+            } else {
+                compile_define_obj(compiler, list)
+            }
+        },
         _ => Err("Expected symbol".to_string()),
     }
 }
