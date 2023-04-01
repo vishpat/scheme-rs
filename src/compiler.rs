@@ -429,8 +429,7 @@ fn compile_list<'a>(
                 compile_binary_expr(s, compiler, list)
             }
             _ => { 
-                let val = compile_function_call(compiler, list);
-                val
+                compile_function_call(compiler, list)
             },
         },
         _ => return Err(format!("Cannot compile list 4.: {:?}", list)),
