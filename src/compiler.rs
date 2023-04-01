@@ -135,7 +135,7 @@ fn compile_function_prototype<'a>(
     Ok(func)
 }
 
-fn compile_define_function<'a>(
+fn compile_function_definition<'a>(
     compiler: &'a Compiler,
     func_proto: &'a [Object],
     func_body: &'a Object,
@@ -145,6 +145,8 @@ fn compile_define_function<'a>(
         Ok(func) => func,
         Err(e) => return Err(e),
     };
+
+    let current_bb = compiler.builder.get_insert_block().unwrap();
 
     let entry = compiler.context.append_basic_block(func_proto, "entry");
     compiler.builder.position_at_end(entry);
@@ -188,6 +190,8 @@ fn compile_define_function<'a>(
     func_proto.verify(true);
 
     compiler.sym_tables.borrow_mut().pop_sym_table();
+
+    compiler.builder.position_at_end(current_bb);
     Ok(compiler.context.f64_type().const_zero())
 }
 
@@ -284,7 +288,7 @@ fn compile_define<'a>(
         Object::Number(_) => compile_define_obj(compiler, list),
         Object::List(_) => {
             if is_function {
-                compile_define_function(compiler, &func_proto, &list[2])?;
+                compile_function_definition(compiler, &func_proto, &list[2])?;
                 Ok(compiler.context.f64_type().const_zero())
             } else {
                 compile_define_obj(compiler, list)
@@ -425,7 +429,10 @@ fn compile_list<'a>(
             "+" | "-" | "*" | "/" | ">" | "<" | ">=" | "<=" | "==" | "!=" => {
                 compile_binary_expr(s, compiler, list)
             }
-            _ => compile_function_call(compiler, list),
+            _ => { 
+                let val = compile_function_call(compiler, list);
+                val
+            },
         },
         _ => return Err(format!("Cannot compile list 4.: {:?}", list)),
     }
