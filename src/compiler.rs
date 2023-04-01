@@ -342,7 +342,6 @@ fn compile_if<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> Result<Float
         .builder
         .build_phi(compiler.context.f64_type(), "iftmp");
     phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
-
     Ok(phi.as_basic_value().into_float_value())
 }
 
@@ -475,7 +474,6 @@ pub fn compile_program(program: &str) -> Result<(), String> {
                 );
                 idx += 1;
                 if idx == list_len {
-                    compiler.builder.position_at_end(main_block);
                     compiler.builder.build_return(Some(&int_val));
                 }
             }
