@@ -7,6 +7,7 @@ use inkwell::module::Module;
 use inkwell::passes::PassManager;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
+use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::PointerValue;
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
@@ -188,6 +189,38 @@ fn compile_define_function<'a>(
 
     compiler.sym_tables.borrow_mut().pop_sym_table();
     Ok(compiler.context.f64_type().const_zero())
+}
+
+fn compile_function_call<'a>(
+    compiler: &'a Compiler,
+    list: &'a [Object],
+) -> Result<FloatValue<'a>, String> {
+    let func_name = match &list[0] {
+        Object::Symbol(s) => s,
+        _ => return Err("Expected symbol".to_string()),
+    };
+
+    let func = compiler
+        .module
+        .get_function(func_name)
+        .unwrap_or_else(|| panic!("Function {} not found", func_name));
+
+    let compiled_args = list[1..]
+        .iter()
+        .map(|a| compile_obj(compiler, a))
+        .collect::<Result<Vec<FloatValue>, String>>()?;
+    let compiled_args: Vec<BasicMetadataValueEnum> =
+        compiled_args.into_iter().map(|val| val.into()).collect();
+
+    let func_call = compiler
+        .builder
+        .build_call(func, compiled_args.as_slice(), "calltmp");
+
+    Ok(func_call
+        .try_as_basic_value()
+        .left()
+        .map(|v| v.into_float_value())
+        .unwrap())
 }
 
 fn compile_define_obj<'a>(
@@ -392,7 +425,7 @@ fn compile_list<'a>(
             "+" | "-" | "*" | "/" | ">" | "<" | ">=" | "<=" | "==" | "!=" => {
                 compile_binary_expr(s, compiler, list)
             }
-            _ => return Err(format!("Cannot compile list 3.: {:?}", list)),
+            _ => compile_function_call(compiler, list),
         },
         _ => return Err(format!("Cannot compile list 4.: {:?}", list)),
     }
