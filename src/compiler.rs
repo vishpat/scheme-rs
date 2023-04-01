@@ -11,9 +11,9 @@ use inkwell::values::PointerValue;
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::FloatPredicate;
 use log::debug;
+use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 const MAIN_FUNC_NAME: &str = "main";
 
@@ -32,9 +32,11 @@ pub struct SymTables<'ctx> {
     pub tables: Vec<Env<Pointer<'ctx>>>,
 }
 
-impl <'ctx> SymTables<'ctx> {
+impl<'ctx> SymTables<'ctx> {
     pub fn new() -> Self {
-        Self { tables: vec![Env::new()] }
+        Self {
+            tables: vec![Env::new()],
+        }
     }
 
     pub fn push_new_sym_table(&mut self) {
@@ -53,10 +55,11 @@ impl <'ctx> SymTables<'ctx> {
     pub fn get_symbol_value(&self, name: &str) -> Option<Pointer<'ctx>> {
         for env in self.tables.iter().rev() {
             if let Some(val) = env.get(name) {
+                debug!("Got symbol {} val: {:?} from sym table", name, val);
                 return Some(val.clone());
             }
         }
-        None 
+        None
     }
 }
 
@@ -95,6 +98,7 @@ fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueE
     let x = match val {
         Some(p) => {
             if p.data_type == DataType::Number {
+                debug!("Loading symbol: {}", sym);
                 let typ = compiler.context.f64_type();
                 compiler.builder.build_load(typ, p.ptr, sym)
             } else {
@@ -115,16 +119,14 @@ fn compile_function_prototype<'a>(
         _ => return Err("Expected symbol".to_string()),
     };
 
-    let func_params = match &func_proto[1] {
-        Object::List(l) => l,
-        _ => return Err("Expected list".to_string()),
-    };
+    let func_params = func_proto[1..].to_vec();
 
     let func_type = compiler.context.f64_type().fn_type(
         &vec![compiler.context.f64_type().into(); func_params.len()],
         false,
     );
     let func = compiler.module.add_function(func_name, func_type, None);
+
     func.get_param_iter().enumerate().for_each(|(i, p)| {
         p.set_name(&func_params[i].to_string());
     });
@@ -135,53 +137,54 @@ fn compile_function_prototype<'a>(
 fn compile_define_function<'a>(
     compiler: &'a Compiler,
     func_proto: &'a [Object],
-    func_body: &'a Object
+    func_body: &'a Object,
 ) -> Result<FloatValue<'a>, String> {
-    let func = match compile_function_prototype(compiler, func_proto) {
+    debug!("Compiling function prototype: {:?}", func_proto);
+    let func_proto = match compile_function_prototype(compiler, func_proto) {
         Ok(func) => func,
         Err(e) => return Err(e),
     };
 
-    let func_body = match func_body {
-        Object::List(l) => l,
-        _ => return Err("Expected list".to_string()),
-    };
-
-    let entry = compiler.context.append_basic_block(func, "entry");
+    let entry = compiler.context.append_basic_block(func_proto, "entry");
     compiler.builder.position_at_end(entry);
     compiler.sym_tables.borrow_mut().push_new_sym_table();
 
-    for (i, p) in func.get_param_iter().enumerate() {
-        let name = match &func_proto[1] {
-            Object::List(l) => &l[i],
-            _ => return Err("Expected list".to_string()),
-        };
-        let name = match name {
-            Object::Symbol(s) => s,
-            _ => return Err("Expected symbol".to_string()),
-        };
-        let ptr = compiler.builder.build_alloca(compiler.context.f64_type(), name);
-        compiler.builder.build_store(ptr, p);
-        compiler.sym_tables.borrow_mut().add_symbol_value(name, Pointer {
-            ptr,
-            data_type: DataType::Number,
-        });
-    }
-
-    let mut idx = 0;
-    let stmt_count = func_body.len();
-    for stmt in func_body.iter() {
-        let val = compile_obj(compiler, stmt)?;
-        idx += 1;
-        if idx == stmt_count {
-            let int_val = compiler.builder.build_float_to_signed_int(
-                    val,
-                    compiler.context.i64_type(),
-                    "inttmp",
-                );
-            compiler.builder.build_return(Some(&int_val));
+    for p in func_proto.get_param_iter() {
+        if p.is_float_value() {
+            let param_float = p.into_float_value();
+            let name = param_float
+                .get_name()
+                .to_str()
+                .ok()
+                .map(|s| s.to_string())
+                .unwrap();
+            let ptr = compiler
+                .builder
+                .build_alloca(compiler.context.f64_type(), &name);
+            compiler.builder.build_store(ptr, p);
+            compiler.sym_tables.borrow_mut().add_symbol_value(
+                &name,
+                Pointer {
+                    ptr,
+                    data_type: DataType::Number,
+                },
+            );
         }
     }
+
+    let _func_body = match func_body {
+        Object::List(l) => l.clone(),
+        _ => {
+            return Err(format!(
+                "Function definition body must be a list: {:?}",
+                func_body
+            ))
+        }
+    };
+
+    let val = compile_list(compiler, &_func_body)?;
+    compiler.builder.build_return(Some(&val));
+    func_proto.verify(true);
 
     compiler.sym_tables.borrow_mut().pop_sym_table();
     Ok(compiler.context.f64_type().const_zero())
@@ -189,10 +192,14 @@ fn compile_define_function<'a>(
 
 fn compile_define_obj<'a>(
     compiler: &'a Compiler,
-    list: &'a Vec<Object>
+    list: &'a Vec<Object>,
 ) -> Result<FloatValue<'a>, String> {
     if list.len() != 3 {
-        return Err(format!("Expected three arguments, found {} {:?}", list.len(), list));
+        return Err(format!(
+            "Expected three arguments, found {} {:?}",
+            list.len(),
+            list
+        ));
     }
 
     let name = match &list[1] {
@@ -203,13 +210,21 @@ fn compile_define_obj<'a>(
     let val = match &list[2] {
         Object::Number(n) => compile_number(compiler, n),
         Object::List(l) => compile_list(compiler, l),
-        _ => return Err(format!("Expected number, found: {}", list[1].to_string())),
+        _ => return Err(format!("Expected number, found: {}", list[1])),
     }?;
 
-    let ptr = compiler.builder.build_alloca(compiler.context.f64_type(), name);
+    let ptr = compiler
+        .builder
+        .build_alloca(compiler.context.f64_type(), name);
     compiler.builder.build_store(ptr, val);
 
-    compiler.sym_tables.borrow_mut().add_symbol_value(name, Pointer { ptr, data_type: DataType::Number });
+    compiler.sym_tables.borrow_mut().add_symbol_value(
+        name,
+        Pointer {
+            ptr,
+            data_type: DataType::Number,
+        },
+    );
 
     Ok(compiler.context.f64_type().const_zero())
 }
@@ -223,26 +238,25 @@ fn compile_define<'a>(
     }
     debug!("Processing define: {:?}", list);
 
-    let mut func_proto = Vec::new(); 
-    let is_function  = match &list[1] {
+    let mut func_proto = Vec::new();
+    let is_function = match &list[1] {
         Object::List(proto) => {
             func_proto = proto.clone();
             true
-        },
+        }
         _ => false,
     };
 
     match &list[2] {
         Object::Number(_) => compile_define_obj(compiler, list),
-        Object::List(_) => 
-        {
+        Object::List(_) => {
             if is_function {
                 compile_define_function(compiler, &func_proto, &list[2])?;
                 Ok(compiler.context.f64_type().const_zero())
             } else {
                 compile_define_obj(compiler, list)
             }
-        },
+        }
         _ => Err("Expected symbol".to_string()),
     }
 }
@@ -414,7 +428,6 @@ pub fn compile_program(program: &str) -> Result<(), String> {
             let mut idx = 0;
             for obj in list {
                 let val = compile_obj(&compiler, &obj)?;
-                debug!("Got float value: {:?}", val);
                 let int_val = compiler.builder.build_float_to_signed_int(
                     val,
                     compiler.context.i64_type(),
@@ -422,6 +435,7 @@ pub fn compile_program(program: &str) -> Result<(), String> {
                 );
                 idx += 1;
                 if idx == list_len {
+                    compiler.builder.position_at_end(main_block);
                     compiler.builder.build_return(Some(&int_val));
                 }
             }
