@@ -442,6 +442,13 @@ fn compile_obj<'a>(compiler: &'a Compiler, obj: &'a Object) -> Result<FloatValue
     let val = match obj {
         Object::Number(n) => compile_number(compiler, n),
         Object::List(list) => compile_list(compiler, list),
+        Object::Symbol(s) => {
+            let val = process_symbol(compiler, s)?;
+            match val {
+                AnyValueEnum::FloatValue(v) => Ok(v),
+                _ => Err(format!("Cannot compile object: {:?}", obj)),
+            }
+        }
         _ => Err(format!("Cannot compile object: {:?}", obj)),
     };
     val
