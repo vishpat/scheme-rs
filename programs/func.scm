@@ -3,4 +3,8 @@
 (define (area-of-circle r)
           (* pi (* r r)))
 
-(area-of-circle 2)
+(define (area-of-square x)
+          (* x x))
+
+(define r (area-of-square 2))
+(area-of-circle r)
