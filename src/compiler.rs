@@ -256,9 +256,13 @@ fn compile_define_obj<'a>(
         _ => return Err("Expected symbol".to_string()),
     };
 
+    let mut set_global = true;
     let val = match &list[2] {
         Object::Number(n) => compile_number(compiler, n),
-        Object::List(l) => compile_list(compiler, l),
+        Object::List(l) => {
+            set_global = false;
+            compile_list(compiler, l)
+        }
         _ => return Err(format!("Expected number, found: {}", list[1])),
     }?;
 
@@ -267,12 +271,22 @@ fn compile_define_obj<'a>(
         .build_alloca(compiler.context.f64_type(), name);
     compiler.builder.build_store(ptr, val);
 
-    let global_val = compiler.module.add_global(
-        compiler.context.f64_type(),
-        Some(AddressSpace::default()),
-        name,
-    );
-    global_val.set_initializer(&val);
+    if set_global {
+        let global_val = compiler.module.add_global(
+            compiler.context.f64_type(),
+            Some(AddressSpace::default()),
+            name,
+        );
+        global_val.set_initializer(&val);
+    } else {
+        compiler.sym_tables.borrow_mut().add_symbol_value(
+            name,
+            Pointer {
+                ptr,
+                data_type: DataType::Number,
+            },
+        );
+    }
 
     Ok(compiler.context.f64_type().const_zero())
 }
