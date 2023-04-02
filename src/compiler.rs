@@ -10,6 +10,7 @@ use inkwell::values::AnyValueEnum;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::PointerValue;
 use inkwell::values::{FloatValue, FunctionValue};
+use inkwell::AddressSpace;
 use inkwell::FloatPredicate;
 use log::debug;
 use std::cell::RefCell;
@@ -54,12 +55,12 @@ impl<'ctx> SymTables<'ctx> {
     }
 
     pub fn get_symbol_value(&self, name: &str) -> Option<Pointer<'ctx>> {
-        for env in self.tables.iter().rev() {
-            if let Some(val) = env.get(name) {
-                debug!("Got symbol {} val: {:?} from sym table", name, val);
-                return Some(val.clone());
-            }
+        let env = self.tables.last().unwrap();
+        if let Some(val) = env.get(name) {
+            debug!("Got symbol {} val: {:?} from sym table", name, val);
+            return Some(val.clone());
         }
+
         None
     }
 }
@@ -94,7 +95,18 @@ fn compile_number<'a>(compiler: &'a Compiler, n: &'a f64) -> Result<FloatValue<'
 }
 
 fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueEnum<'ctx>, String> {
+    let global_val = compiler.module.get_global(sym);
+    if let Some(g) = global_val {
+        let val = g.get_initializer().unwrap();
+        debug!("Loading global symbol: {} with value {:?}", sym, val);
+        compiler
+            .builder
+            .build_load(compiler.context.f64_type(), g.as_pointer_value(), sym);
+        return Ok(val.as_any_value_enum());
+    }
+
     let val = compiler.sym_tables.borrow().get_symbol_value(sym);
+
     debug!("Processing symbol {} val: {:?}", sym, val);
     let x = match val {
         Some(p) => {
@@ -255,13 +267,12 @@ fn compile_define_obj<'a>(
         .build_alloca(compiler.context.f64_type(), name);
     compiler.builder.build_store(ptr, val);
 
-    compiler.sym_tables.borrow_mut().add_symbol_value(
+    let global_val = compiler.module.add_global(
+        compiler.context.f64_type(),
+        Some(AddressSpace::default()),
         name,
-        Pointer {
-            ptr,
-            data_type: DataType::Number,
-        },
     );
+    global_val.set_initializer(&val);
 
     Ok(compiler.context.f64_type().const_zero())
 }
@@ -428,9 +439,7 @@ fn compile_list<'a>(
             "+" | "-" | "*" | "/" | ">" | "<" | ">=" | "<=" | "==" | "!=" => {
                 compile_binary_expr(s, compiler, list)
             }
-            _ => { 
-                compile_function_call(compiler, list)
-            },
+            _ => compile_function_call(compiler, list),
         },
         _ => return Err(format!("Cannot compile list 4.: {:?}", list)),
     }
