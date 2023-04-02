@@ -54,11 +54,10 @@ impl<'ctx> SymTables<'ctx> {
     }
 
     pub fn get_symbol_value(&self, name: &str) -> Option<Pointer<'ctx>> {
-        for env in self.tables.iter().rev() {
-            if let Some(val) = env.get(name) {
-                debug!("Got symbol {} val: {:?} from sym table", name, val);
-                return Some(val.clone());
-            }
+        let env = self.tables.last().unwrap();
+        if let Some(val) = env.get(name) {
+            debug!("Got symbol {} val: {:?} from sym table", name, val);
+            return Some(val.clone());
         }
         None
     }
