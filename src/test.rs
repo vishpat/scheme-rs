@@ -8,7 +8,8 @@ mod tests {
 
     #[test]
     fn test_compose() {
-        let mut env = Rc::new(RefCell::new(env::Env::new()));
+        let mut env =
+            Rc::new(RefCell::new(env::Env::new()));
         let program = "
             (define compose 
                 (lambda (f g x)
@@ -30,7 +31,8 @@ mod tests {
 
     #[test]
     fn test_map_1() {
-        let mut env = Rc::new(RefCell::new(env::Env::new()));
+        let mut env =
+            Rc::new(RefCell::new(env::Env::new()));
         let program = "
             (define map 
                 (lambda (f a-list)
@@ -61,7 +63,8 @@ mod tests {
 
     #[test]
     fn test_map_2() {
-        let mut env = Rc::new(RefCell::new(env::Env::new()));
+        let mut env =
+            Rc::new(RefCell::new(env::Env::new()));
         let program = "
             (define map 
                 (lambda (f a-list)
@@ -89,7 +92,8 @@ mod tests {
 
     #[test]
     fn test_foldr() {
-        let mut env = Rc::new(RefCell::new(env::Env::new()));
+        let mut env =
+            Rc::new(RefCell::new(env::Env::new()));
         let program = "
             (define add 
                 (lambda (x y) 

@@ -24,18 +24,27 @@ pub fn parse(program: &str) -> Result<Object, ParseError> {
         });
     }
 
-    let mut tokens = token_result.unwrap().into_iter().rev().collect::<Vec<_>>();
+    let mut tokens = token_result
+        .unwrap()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>();
     tokens.insert(0, Token::RParen);
     tokens.push(Token::LParen);
     let parsed_list = parse_list(&mut tokens)?;
     Ok(parsed_list)
 }
 
-fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
+fn parse_list(
+    tokens: &mut Vec<Token>,
+) -> Result<Object, ParseError> {
     let token = tokens.pop();
     if token != Some(Token::LParen) {
         return Err(ParseError {
-            err: format!("Expected LParen, found {:?}", token),
+            err: format!(
+                "Expected LParen, found {:?}",
+                token
+            ),
         });
     }
 
@@ -44,14 +53,21 @@ fn parse_list(tokens: &mut Vec<Token>) -> Result<Object, ParseError> {
         let token = tokens.pop();
         if token.is_none() {
             return Err(ParseError {
-                err: "Did not find enough tokens".to_string(),
+                err: "Did not find enough tokens"
+                    .to_string(),
             });
         }
         let t = token.unwrap();
         match t {
-            Token::Number(n) => list.push(Object::Number(n)),
-            Token::Symbol(s) => list.push(Object::Symbol(s)),
-            Token::String(s) => list.push(Object::String(s)),
+            Token::Number(n) => {
+                list.push(Object::Number(n))
+            }
+            Token::Symbol(s) => {
+                list.push(Object::Symbol(s))
+            }
+            Token::String(s) => {
+                list.push(Object::String(s))
+            }
             Token::LParen => {
                 tokens.push(Token::LParen);
                 let sub_list = parse_list(tokens)?;

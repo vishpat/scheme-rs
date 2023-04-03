@@ -25,7 +25,9 @@ fn repl() -> Result<(), Box<dyn std::error::Error>> {
 
     reader.set_prompt(PROMPT.to_string().as_ref()).unwrap();
 
-    while let ReadResult::Input(input) = reader.read_line().unwrap() {
+    while let ReadResult::Input(input) =
+        reader.read_line().unwrap()
+    {
         if input.eq("exit") {
             break;
         }
@@ -60,19 +62,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.len() < 2 {
         return repl();
     } else if args[1] == "-i" {
-        let mut file = File::open(&args[2]).expect("File not found");
+        let mut file =
+            File::open(&args[2]).expect("File not found");
         let mut contents = String::new();
         file.read_to_string(&mut contents)
             .expect("Could not read file");
-        let mut env = Rc::new(RefCell::new(env::Env::new()));
-        let result = eval::eval(&contents, &mut env).unwrap();
+        let mut env =
+            Rc::new(RefCell::new(env::Env::new()));
+        let result =
+            eval::eval(&contents, &mut env).unwrap();
         println!("{}", result);
     } else if args[1] == "-c" {
-        let mut file = File::open(&args[2]).expect("File not found");
+        let mut file =
+            File::open(&args[2]).expect("File not found");
         let mut contents = String::new();
         file.read_to_string(&mut contents)
             .expect("Could not read file");
-        compile_program(&contents).unwrap_or_else(|e| panic!("{}", e));
+        compile_program(&contents)
+            .unwrap_or_else(|e| panic!("{}", e));
     }
 
     Ok(())
