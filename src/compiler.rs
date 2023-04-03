@@ -71,6 +71,8 @@ pub struct Compiler<'ctx> {
     pub module: Module<'ctx>,
     pub fpm: inkwell::passes::PassManager<FunctionValue<'ctx>>,
     pub sym_tables: Rc<RefCell<SymTables<'ctx>>>,
+    pub int_type: inkwell::types::IntType<'ctx>,
+    pub float_type: inkwell::types::FloatType<'ctx>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -86,12 +88,16 @@ impl<'ctx> Compiler<'ctx> {
             module,
             fpm,
             sym_tables,
+            int_type: context.i64_type(),
+            float_type: context.f64_type(),
         }
     }
 }
 
-fn compile_number<'a>(compiler: &'a Compiler, n: &'a f64) -> Result<FloatValue<'a>, String> {
-    Ok(compiler.context.f64_type().const_float(*n))
+type CompileResult<'ctx> = Result<AnyValueEnum<'ctx>, String>;
+
+fn compile_number<'a>(compiler: &'a Compiler, n: &'a f64) -> CompileResult<'a> {
+    Ok(compiler.float_type.const_float(*n).as_any_value_enum())
 }
 
 fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueEnum<'ctx>, String> {
@@ -101,7 +107,7 @@ fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueE
         debug!("Loading global symbol: {} with value {:?}", sym, val);
         compiler
             .builder
-            .build_load(compiler.context.f64_type(), g.as_pointer_value(), sym);
+            .build_load(compiler.float_type, g.as_pointer_value(), sym);
         return Ok(val.as_any_value_enum());
     }
 
@@ -112,8 +118,7 @@ fn process_symbol<'ctx>(compiler: &'ctx Compiler, sym: &str) -> Result<AnyValueE
         Some(p) => {
             if p.data_type == DataType::Number {
                 debug!("Loading symbol: {}", sym);
-                let typ = compiler.context.f64_type();
-                compiler.builder.build_load(typ, p.ptr, sym)
+                compiler.builder.build_load(compiler.float_type, p.ptr, sym)
             } else {
                 return Err(format!("Cannot load symbol: {}", sym));
             }
@@ -134,10 +139,9 @@ fn compile_function_prototype<'a>(
 
     let func_params = func_proto[1..].to_vec();
 
-    let func_type = compiler.context.f64_type().fn_type(
-        &vec![compiler.context.f64_type().into(); func_params.len()],
-        false,
-    );
+    let func_type = compiler
+        .float_type
+        .fn_type(&vec![compiler.float_type.into(); func_params.len()], false);
     let func = compiler.module.add_function(func_name, func_type, None);
 
     func.get_param_iter().enumerate().for_each(|(i, p)| {
@@ -173,9 +177,7 @@ fn compile_function_definition<'a>(
                 .ok()
                 .map(|s| s.to_string())
                 .unwrap();
-            let ptr = compiler
-                .builder
-                .build_alloca(compiler.context.f64_type(), &name);
+            let ptr = compiler.builder.build_alloca(compiler.float_type, &name);
             compiler.builder.build_store(ptr, p);
             compiler.sym_tables.borrow_mut().add_symbol_value(
                 &name,
@@ -197,20 +199,17 @@ fn compile_function_definition<'a>(
         }
     };
 
-    let val = compile_list(compiler, &_func_body)?;
+    let val = compile_list(compiler, &_func_body)?.into_float_value();
     compiler.builder.build_return(Some(&val));
     func_proto.verify(true);
 
     compiler.sym_tables.borrow_mut().pop_sym_table();
 
     compiler.builder.position_at_end(current_bb);
-    Ok(compiler.context.f64_type().const_zero())
+    Ok(compiler.float_type.const_zero())
 }
 
-fn compile_function_call<'a>(
-    compiler: &'a Compiler,
-    list: &'a [Object],
-) -> Result<FloatValue<'a>, String> {
+fn compile_function_call<'a>(compiler: &'a Compiler, list: &'a [Object]) -> CompileResult<'a> {
     let func_name = match &list[0] {
         Object::Symbol(s) => s,
         _ => return Err("Expected symbol".to_string()),
@@ -224,9 +223,11 @@ fn compile_function_call<'a>(
     let compiled_args = list[1..]
         .iter()
         .map(|a| compile_obj(compiler, a))
-        .collect::<Result<Vec<FloatValue>, String>>()?;
-    let compiled_args: Vec<BasicMetadataValueEnum> =
-        compiled_args.into_iter().map(|val| val.into()).collect();
+        .collect::<Result<Vec<AnyValueEnum>, String>>()?;
+    let compiled_args: Vec<BasicMetadataValueEnum> = compiled_args
+        .into_iter()
+        .map(|val| val.into_float_value().into())
+        .collect();
 
     let func_call = compiler
         .builder
@@ -236,13 +237,11 @@ fn compile_function_call<'a>(
         .try_as_basic_value()
         .left()
         .map(|v| v.into_float_value())
-        .unwrap())
+        .unwrap()
+        .as_any_value_enum())
 }
 
-fn compile_define_obj<'a>(
-    compiler: &'a Compiler,
-    list: &'a Vec<Object>,
-) -> Result<FloatValue<'a>, String> {
+fn compile_define_obj<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> CompileResult<'a> {
     if list.len() != 3 {
         return Err(format!(
             "Expected three arguments, found {} {:?}",
@@ -266,17 +265,15 @@ fn compile_define_obj<'a>(
         _ => return Err(format!("Expected number, found: {}", list[1])),
     }?;
 
-    let ptr = compiler
-        .builder
-        .build_alloca(compiler.context.f64_type(), name);
+    let val = val.into_float_value();
+    let ptr = compiler.builder.build_alloca(compiler.float_type, name);
     compiler.builder.build_store(ptr, val);
 
     if set_global {
-        let global_val = compiler.module.add_global(
-            compiler.context.f64_type(),
-            Some(AddressSpace::default()),
-            name,
-        );
+        let global_val =
+            compiler
+                .module
+                .add_global(compiler.float_type, Some(AddressSpace::default()), name);
         global_val.set_initializer(&val);
     } else {
         compiler.sym_tables.borrow_mut().add_symbol_value(
@@ -288,13 +285,10 @@ fn compile_define_obj<'a>(
         );
     }
 
-    Ok(compiler.context.f64_type().const_zero())
+    Ok(compiler.float_type.const_zero().as_any_value_enum())
 }
 
-fn compile_define<'a>(
-    compiler: &'a Compiler,
-    list: &'a Vec<Object>,
-) -> Result<FloatValue<'a>, String> {
+fn compile_define<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> CompileResult<'a> {
     if list.len() != 3 {
         return Err(format!("Expected 2 arguments, found {}", list.len() - 1));
     }
@@ -314,7 +308,7 @@ fn compile_define<'a>(
         Object::List(_) => {
             if is_function {
                 compile_function_definition(compiler, &func_proto, &list[2])?;
-                Ok(compiler.context.f64_type().const_zero())
+                Ok(compiler.float_type.const_zero().as_any_value_enum())
             } else {
                 compile_define_obj(compiler, list)
             }
@@ -323,15 +317,16 @@ fn compile_define<'a>(
     }
 }
 
-fn compile_if<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> Result<FloatValue<'a>, String> {
+fn compile_if<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> CompileResult<'a> {
     if list.len() != 4 {
         return Err(format!("Expected 3 arguments, found {}", list.len() - 1));
     }
     let cond_ir = compile_obj(compiler, &list[1])?;
+    let cond_ir = cond_ir.into_float_value();
     let cond_bool = compiler.builder.build_float_compare(
         inkwell::FloatPredicate::ONE,
         cond_ir,
-        compiler.context.f64_type().const_zero(),
+        compiler.float_type.const_zero(),
         "ifcond",
     );
 
@@ -353,28 +348,26 @@ fn compile_if<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> Result<Float
         .build_conditional_branch(cond_bool, then_bb, else_bb);
 
     compiler.builder.position_at_end(then_bb);
-    let then_val = compile_obj(compiler, &list[2])?;
+    let then_val = compile_obj(compiler, &list[2])?.into_float_value();
     compiler.builder.build_unconditional_branch(merge_bb);
     then_bb = compiler.builder.get_insert_block().unwrap();
 
     compiler.builder.position_at_end(else_bb);
-    let else_val = compile_obj(compiler, &list[3])?;
+    let else_val = compile_obj(compiler, &list[3])?.into_float_value();
     compiler.builder.build_unconditional_branch(merge_bb);
     else_bb = compiler.builder.get_insert_block().unwrap();
 
     compiler.builder.position_at_end(merge_bb);
-    let phi = compiler
-        .builder
-        .build_phi(compiler.context.f64_type(), "iftmp");
+    let phi = compiler.builder.build_phi(compiler.float_type, "iftmp");
     phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
-    Ok(phi.as_basic_value().into_float_value())
+    Ok(phi.as_basic_value().into_float_value().as_any_value_enum())
 }
 
 fn compile_binary_expr<'a>(
     binary_op: &str,
     compiler: &'a Compiler,
     list: &'a Vec<Object>,
-) -> Result<FloatValue<'a>, String> {
+) -> CompileResult<'a> {
     if list.len() != 3 {
         return Err(format!("Expected 2 arguments, found {}", list.len() - 1));
     }
@@ -384,7 +377,7 @@ fn compile_binary_expr<'a>(
         Object::Symbol(s) => {
             let val = process_symbol(compiler, s)?;
             match val {
-                AnyValueEnum::FloatValue(v) => v,
+                AnyValueEnum::FloatValue(v) => v.as_any_value_enum(),
                 _ => return Err(format!("Cannot compile lhs: {:?}", list[1])),
             }
         }
@@ -397,13 +390,16 @@ fn compile_binary_expr<'a>(
         Object::Symbol(s) => {
             let val = process_symbol(compiler, s)?;
             match val {
-                AnyValueEnum::FloatValue(v) => v,
+                AnyValueEnum::FloatValue(v) => v.as_any_value_enum(),
                 _ => return Err(format!("Cannot compile lhs: {:?}", list[1])),
             }
         }
         Object::List(l) => compile_list(compiler, l)?,
         _ => return Err(format!("Cannot compile rhs: {:?}", list[2])),
     };
+
+    let left = left.into_float_value();
+    let right = right.into_float_value();
 
     let val = match binary_op {
         "+" => compiler.builder.build_float_add(left, right, "addtmp"),
@@ -427,19 +423,16 @@ fn compile_binary_expr<'a>(
 
             compiler.builder.build_unsigned_int_to_float(
                 cmp_as_intval,
-                compiler.context.f64_type(),
+                compiler.float_type,
                 "booltmp",
             )
         }
         _ => return Err(format!("Cannot compile list 2.: {:?}", list)),
     };
-    Ok(val)
+    Ok(val.as_any_value_enum())
 }
 
-fn compile_list<'a>(
-    compiler: &'a Compiler,
-    list: &'a Vec<Object>,
-) -> Result<FloatValue<'a>, String> {
+fn compile_list<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> CompileResult<'a> {
     if list.is_empty() {
         return Err("Cannot compile empty list".to_string());
     }
@@ -459,7 +452,7 @@ fn compile_list<'a>(
     }
 }
 
-fn compile_obj<'a>(compiler: &'a Compiler, obj: &'a Object) -> Result<FloatValue<'a>, String> {
+fn compile_obj<'a>(compiler: &'a Compiler, obj: &'a Object) -> CompileResult<'a> {
     debug!("Compiling Object: {:?}", obj);
     let val = match obj {
         Object::Number(n) => compile_number(compiler, n),
@@ -467,7 +460,7 @@ fn compile_obj<'a>(compiler: &'a Compiler, obj: &'a Object) -> Result<FloatValue
         Object::Symbol(s) => {
             let val = process_symbol(compiler, s)?;
             match val {
-                AnyValueEnum::FloatValue(v) => Ok(v),
+                AnyValueEnum::FloatValue(v) => Ok(v.as_any_value_enum()),
                 _ => Err(format!("Cannot compile object: {:?}", obj)),
             }
         }
@@ -496,6 +489,7 @@ pub fn compile_program(program: &str) -> Result<(), String> {
             let mut idx = 0;
             for obj in list {
                 let val = compile_obj(&compiler, &obj)?;
+                let val = val.into_float_value();
                 let int_val = compiler.builder.build_float_to_signed_int(
                     val,
                     compiler.context.i64_type(),
