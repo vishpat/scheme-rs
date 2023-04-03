@@ -1,3 +1,4 @@
+(quote (1 2 3))
 (define pi 3.14)
 
 (define (area-of-circle r)

@@ -317,6 +317,45 @@ fn compile_define<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> CompileR
     }
 }
 
+fn compile_quote<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> CompileResult<'a> {
+    if list.len() != 2 {
+        return Err(format!("Expected 1 argument, found {}", list.len() - 1));
+    }
+    debug!("Processing quote: {:?}", list);
+
+    let val = match &list[1] {
+        Object::List(l) => {
+            let arr_len = compiler.int_type.const_int(l.len() as u64, false);
+            let arr = compiler
+                .builder
+                .build_array_alloca(compiler.float_type, arr_len, "arr");
+            for (i, obj) in l.iter().enumerate() {
+                let val = match obj {
+                    Object::Number(n) => compile_number(compiler, n),
+                    _ => return Err(format!("Expected number, found: {}", obj)),
+                }?;
+                let val = val.into_float_value();
+                let ptr = unsafe {
+                    compiler.builder.build_gep(
+                        compiler.float_type,
+                        arr,
+                        &[
+                            compiler.int_type.const_int(0, false),
+                            compiler.int_type.const_int(i as u64, false),
+                        ],
+                        "ptr",
+                    )
+                };
+                compiler.builder.build_store(ptr, val);
+            }
+            arr.as_any_value_enum()
+        }
+        _ => return Err(format!("Expected list, found: {}", list[1])),
+    };
+
+    Ok(val)
+}
+
 fn compile_if<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> CompileResult<'a> {
     if list.len() != 4 {
         return Err(format!("Expected 3 arguments, found {}", list.len() - 1));
@@ -442,6 +481,7 @@ fn compile_list<'a>(compiler: &'a Compiler, list: &'a Vec<Object>) -> CompileRes
     match &list[0] {
         Object::Symbol(s) => match s.as_str() {
             "define" => compile_define(compiler, list),
+            "quote" => compile_quote(compiler, list),
             "if" => compile_if(compiler, list),
             "+" | "-" | "*" | "/" | ">" | "<" | ">=" | "<=" | "==" | "!=" => {
                 compile_binary_expr(s, compiler, list)
@@ -489,12 +529,18 @@ pub fn compile_program(program: &str) -> Result<(), String> {
             let mut idx = 0;
             for obj in list {
                 let val = compile_obj(&compiler, &obj)?;
-                let val = val.into_float_value();
-                let int_val = compiler.builder.build_float_to_signed_int(
-                    val,
-                    compiler.context.i64_type(),
-                    "inttmp",
-                );
+                let int_val = match val {
+                    AnyValueEnum::FloatValue(_) => {
+                        let val = val.into_float_value();
+                        compiler.builder.build_float_to_signed_int(
+                            val,
+                            compiler.context.i64_type(),
+                            "inttmp",
+                        )
+                    }
+                    _ => compiler.int_type.const_zero(),
+                };
+
                 idx += 1;
                 if idx == list_len {
                     compiler.builder.build_return(Some(&int_val));
