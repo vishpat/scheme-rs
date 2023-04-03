@@ -448,7 +448,6 @@ fn compile_quote<'a>(
                         compiler.float_type,
                         arr,
                         &[
-                            compiler.int_type.const_zero(),
                             compiler
                                 .int_type
                                 .const_int(i as u64, false),
