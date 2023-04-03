@@ -35,7 +35,9 @@ impl fmt::Display for TokenError {
     }
 }
 
-pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
+pub fn tokenize(
+    program: &str,
+) -> Result<Vec<Token>, TokenError> {
     let mut tokens = Vec::new();
     let mut chars = program.chars().collect::<Vec<char>>();
 
@@ -64,7 +66,11 @@ pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
             }
             _ => {
                 let mut word = String::new();
-                while !chars.is_empty() && !ch.is_whitespace() && ch != '(' && ch != ')' {
+                while !chars.is_empty()
+                    && !ch.is_whitespace()
+                    && ch != '('
+                    && ch != ')'
+                {
                     word.push(ch);
                     let peek = chars[0];
                     if peek == '(' || peek == ')' {
@@ -75,11 +81,13 @@ pub fn tokenize(program: &str) -> Result<Vec<Token>, TokenError> {
                 }
 
                 if !word.is_empty() {
-                    tokens.push(if let Ok(i) = word.parse::<f64>() {
-                        Token::Number(i)
-                    } else {
-                        Token::Symbol(word)
-                    });
+                    tokens.push(
+                        if let Ok(i) = word.parse::<f64>() {
+                            Token::Number(i)
+                        } else {
+                            Token::Symbol(word)
+                        },
+                    );
                 }
             }
         }

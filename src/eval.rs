@@ -21,11 +21,21 @@ fn eval_binary_op(
     let right = eval_obj(&list[2].clone(), env)?;
     let left_val = match left {
         Object::Number(n) => n,
-        _ => return Err(format!("Left operand must be an integer {:?}", left)),
+        _ => {
+            return Err(format!(
+                "Left operand must be an integer {:?}",
+                left
+            ))
+        }
     };
     let right_val = match right {
         Object::Number(n) => n,
-        _ => return Err(format!("Right operand must be an integer {:?}", right)),
+        _ => {
+            return Err(format!(
+                "Right operand must be an integer {:?}",
+                right
+            ))
+        }
     };
     match operator {
         Object::Symbol(s) => match s.as_str() {
@@ -33,20 +43,32 @@ fn eval_binary_op(
             "-" => Ok(Object::Number(left_val - right_val)),
             "*" => Ok(Object::Number(left_val * right_val)),
             "/" => Ok(Object::Number(left_val / right_val)),
-            "mod" => Ok(Object::Number(left_val % right_val)),
+            "mod" => {
+                Ok(Object::Number(left_val % right_val))
+            }
             "<" => Ok(Object::Bool(left_val < right_val)),
             ">" => Ok(Object::Bool(left_val > right_val)),
             "=" => Ok(Object::Bool(left_val == right_val)),
             "!=" => Ok(Object::Bool(left_val != right_val)),
-            _ => Err(format!("Invalid infix operator: {}", s)),
+            _ => Err(format!(
+                "Invalid infix operator: {}",
+                s
+            )),
         },
-        _ => Err(format!("Operator must be a symbol {:?}", operator)),
+        _ => Err(format!(
+            "Operator must be a symbol {:?}",
+            operator
+        )),
     }
 }
 
-fn eval_cons(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_cons(
+    list: &[Object],
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 3 {
-        return Err("Invalid number of arguments for cons".to_string());
+        return Err("Invalid number of arguments for cons"
+            .to_string());
     }
 
     let car = eval_obj(&list[1], env)?;
@@ -60,9 +82,13 @@ fn eval_cons(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Obje
     Ok(Object::List(new_list))
 }
 
-fn eval_car(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_car(
+    list: &[Object],
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 2 {
-        return Err("Invalid number of arguments for car".to_string());
+        return Err("Invalid number of arguments for car"
+            .to_string());
     }
 
     let obj = eval_obj(&list[1], env)?;
@@ -76,9 +102,13 @@ fn eval_car(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Objec
     Ok(list[0].clone())
 }
 
-fn eval_cdr(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_cdr(
+    list: &[Object],
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 2 {
-        return Err("Invalid number of arguments for cdr".to_string());
+        return Err("Invalid number of arguments for cdr"
+            .to_string());
     }
 
     let obj = eval_obj(&list[1], env)?;
@@ -92,39 +122,57 @@ fn eval_cdr(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Objec
     Ok(Object::List(list[1..].to_vec()))
 }
 
-fn eval_define(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_define(
+    list: &Vec<Object>,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 3 {
-        return Err("Invalid number of arguments for define".to_string());
+        return Err(
+            "Invalid number of arguments for define"
+                .to_string(),
+        );
     }
 
     let mut function = true;
 
-    let sym = match &list[1] {
-        Object::Symbol(s) => {
-            function = false;
-            s.clone()
-        }
-        Object::List(l) => match &l[0] {
-            Object::Symbol(s) => s.clone(),
-            _ => return Err("Invalid function definition in define".to_string()),
-        },
-        _ => return Err("Invalid define".to_string()),
-    };
+    let sym =
+        match &list[1] {
+            Object::Symbol(s) => {
+                function = false;
+                s.clone()
+            }
+            Object::List(l) => match &l[0] {
+                Object::Symbol(s) => s.clone(),
+                _ => return Err(
+                    "Invalid function definition in define"
+                        .to_string(),
+                ),
+            },
+            _ => return Err("Invalid define".to_string()),
+        };
 
     let val = if function {
-        let params = match &list[1] {
-            Object::List(l) => {
-                let mut v = l.clone();
-                v.remove(0);
-                Object::List(v)
-            }
-            _ => return Err("Invalid function signature: define".to_string()),
-        };
+        let params =
+            match &list[1] {
+                Object::List(l) => {
+                    let mut v = l.clone();
+                    v.remove(0);
+                    Object::List(v)
+                }
+                _ => return Err(
+                    "Invalid function signature: define"
+                        .to_string(),
+                ),
+            };
         match &list[2] {
             Object::List(l) => l.clone(),
-            _ => return Err("Invalid function body: define".to_string()),
+            _ => {
+                return Err("Invalid function body: define"
+                    .to_string())
+            }
         };
-        let function_definition = vec![Object::Void, params, list[2].clone()];
+        let function_definition =
+            vec![Object::Void, params, list[2].clone()];
         eval_function_definition(&function_definition, env)?
     } else {
         eval_obj(&list[2], env)?
@@ -133,9 +181,13 @@ fn eval_define(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result
     Ok(Object::Void)
 }
 
-fn eval_set(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_set(
+    list: &Vec<Object>,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 3 {
-        return Err("Invalid number of arguments for set".to_string());
+        return Err("Invalid number of arguments for set"
+            .to_string());
     }
 
     let sym = match &list[1] {
@@ -147,15 +199,25 @@ fn eval_set(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Ob
     Ok(Object::Void)
 }
 
-fn eval_if(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_if(
+    list: &Vec<Object>,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 4 {
-        return Err("Invalid number of arguments for if statement".to_string());
+        return Err(
+            "Invalid number of arguments for if statement"
+                .to_string(),
+        );
     }
 
     let cond_obj = eval_obj(&list[1], env)?;
     let cond = match cond_obj {
         Object::Bool(b) => b,
-        _ => return Err("Condition must be a boolean".to_string()),
+        _ => {
+            return Err(
+                "Condition must be a boolean".to_string()
+            )
+        }
     };
 
     if cond {
@@ -165,7 +227,9 @@ fn eval_if(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Obj
     }
 }
 
-fn eval_quote(list: &Vec<Object>) -> Result<Object, String> {
+fn eval_quote(
+    list: &Vec<Object>,
+) -> Result<Object, String> {
     if list.len() != 2 {
         return Err("Invalid number of arguments for quote statement".to_string());
     }
@@ -173,7 +237,10 @@ fn eval_quote(list: &Vec<Object>) -> Result<Object, String> {
     Ok(list[1].clone())
 }
 
-fn eval_null(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_null(
+    list: &Vec<Object>,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 2 {
         return Err("Invalid number of arguments for null statement".to_string());
     }
@@ -181,7 +248,11 @@ fn eval_null(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<O
     let obj = eval_obj(&list[1], env)?;
     let list = match obj {
         Object::List(l) => l,
-        _ => return Err("null arg must be a list".to_string()),
+        _ => {
+            return Err(
+                "null arg must be a list".to_string()
+            )
+        }
     };
     Ok(Object::Bool(list.is_empty()))
 }
@@ -209,60 +280,95 @@ fn eval_function_definition(
         ));
     }
 
-    let params = match &list[1] {
-        Object::List(list) => {
-            let mut params = Vec::new();
-            for param in list {
-                match param {
-                    Object::Symbol(s) => params.push(s.clone()),
-                    _ => return Err(format!("Invalid lambda parameter {:?}", param)),
+    let params =
+        match &list[1] {
+            Object::List(list) => {
+                let mut params = Vec::new();
+                for param in list {
+                    match param {
+                        Object::Symbol(s) => {
+                            params.push(s.clone())
+                        }
+                        _ => return Err(format!(
+                            "Invalid lambda parameter {:?}",
+                            param
+                        )),
+                    }
                 }
+                params
             }
-            params
-        }
-        _ => return Err(format!("Invalid lambda {:?}", list[1].clone())),
-    };
+            _ => {
+                return Err(format!(
+                    "Invalid lambda {:?}",
+                    list[1].clone()
+                ))
+            }
+        };
 
     let body = match &list[2] {
         Object::List(list) => list.clone(),
-        _ => return Err(format!("Invalid lambda {:?}", list[2].clone())),
+        _ => {
+            return Err(format!(
+                "Invalid lambda {:?}",
+                list[2].clone()
+            ))
+        }
     };
     Ok(Object::Lambda(params, body, env.clone()))
 }
 
-fn eval_let(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_let(
+    list: &[Object],
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     let mut result = Object::Void;
     let bindings_env = Rc::new(RefCell::new(Env::new()));
 
     if list.len() < 3 {
-        return Err("Invalid number of arguments for let".to_string());
+        return Err("Invalid number of arguments for let"
+            .to_string());
     }
 
     let bindings = match list[1].clone() {
         Object::List(bindings) => bindings,
-        _ => return Err("Invalid bindings for let".to_string()),
+        _ => {
+            return Err(
+                "Invalid bindings for let".to_string()
+            )
+        }
     };
 
     for binding in bindings.iter() {
         let binding = match binding {
             Object::List(binding) => binding,
-            _ => return Err("Invalid binding for let".to_string()),
+            _ => {
+                return Err(
+                    "Invalid binding for let".to_string()
+                )
+            }
         };
 
         if binding.len() != 2 {
-            return Err("Invalid binding for let".to_string());
+            return Err(
+                "Invalid binding for let".to_string()
+            );
         }
 
         let name = match binding[0].clone() {
             Object::Symbol(name) => name,
-            _ => return Err("Invalid binding for let".to_string()),
+            _ => {
+                return Err(
+                    "Invalid binding for let".to_string()
+                )
+            }
         };
 
         let value = eval_obj(&binding[1], env)?;
         bindings_env.borrow_mut().set(name.as_str(), value);
     }
 
-    let mut new_env = Rc::new(RefCell::new(Env::extend(env.clone())));
+    let mut new_env =
+        Rc::new(RefCell::new(Env::extend(env.clone())));
     new_env.borrow_mut().update(bindings_env);
 
     for obj in list[2..].iter() {
@@ -284,10 +390,13 @@ fn eval_function_call(
     let func = lamdba.unwrap();
     match func {
         Object::Lambda(params, body, fenv) => {
-            let mut new_env = Rc::new(RefCell::new(Env::extend(env.clone())));
+            let mut new_env = Rc::new(RefCell::new(
+                Env::extend(env.clone()),
+            ));
             new_env.borrow_mut().update(fenv);
             for (i, param) in params.iter().enumerate() {
-                let val = eval_obj(&list[i + 1], &mut new_env)?;
+                let val =
+                    eval_obj(&list[i + 1], &mut new_env)?;
                 new_env.borrow_mut().set(param, val);
             }
             eval_obj(&Object::List(body), &mut new_env)
@@ -296,7 +405,10 @@ fn eval_function_call(
     }
 }
 
-fn eval_symbol(s: &str, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_symbol(
+    s: &str,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     let val = match s {
         "#t" | "else" => return Ok(Object::Bool(true)),
         "#f" => return Ok(Object::Bool(false)),
@@ -313,9 +425,15 @@ fn eval_symbol(s: &str, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, St
     Ok(val.unwrap())
 }
 
-fn eval_display(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_display(
+    list: &Vec<Object>,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 2 {
-        return Err("Invalid number of arguments for display".to_string());
+        return Err(
+            "Invalid number of arguments for display"
+                .to_string(),
+        );
     }
 
     let sym = eval_obj(&list[1].clone(), env)?;
@@ -340,7 +458,10 @@ fn eval_logical_operation(
         let obj = eval_obj(l, env)?;
         let val = match obj {
             Object::Bool(b) => b,
-            _ => return Err(format!("Invalid logical operation argument: {:?}", obj)),
+            _ => return Err(format!(
+                "Invalid logical operation argument: {:?}",
+                obj
+            )),
         };
         result = match op {
             LogicalOp::And => result && val,
@@ -350,7 +471,10 @@ fn eval_logical_operation(
     Ok(Object::Bool(result))
 }
 
-fn eval_begin(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_begin(
+    list: &[Object],
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     let mut result = Object::Void;
     for obj in list[1..].iter() {
         result = eval_obj(obj, env)?;
@@ -358,9 +482,13 @@ fn eval_begin(list: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Obj
     Ok(result)
 }
 
-fn eval_equal(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_equal(
+    list: &Vec<Object>,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() != 3 {
-        return Err("Invalid number of arguments for eq?".to_string());
+        return Err("Invalid number of arguments for eq?"
+            .to_string());
     }
 
     let obj1 = eval_obj(&list[1], env)?;
@@ -368,43 +496,64 @@ fn eval_equal(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<
     Ok(Object::Bool(obj1 == obj2))
 }
 
-fn eval_cond(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_cond(
+    list: &Vec<Object>,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if list.len() < 2 {
-        return Err("Invalid number of arguments for cond".to_string());
+        return Err("Invalid number of arguments for cond"
+            .to_string());
     }
 
     for l in list[1..].iter() {
         match l {
             Object::List(list) => {
                 if list.len() != 2 {
-                    return Err(format!("Invalid cond clause {:?}", list));
+                    return Err(format!(
+                        "Invalid cond clause {:?}",
+                        list
+                    ));
                 }
                 let cond = eval_obj(&list[0], env)?;
                 let cond_val = match cond {
                     Object::Bool(b) => b,
-                    _ => return Err(format!("Condition must be a boolean {:?}", cond)),
+                    _ => return Err(format!(
+                        "Condition must be a boolean {:?}",
+                        cond
+                    )),
                 };
                 if cond_val {
                     return eval_obj(&list[1], env);
                 }
             }
-            _ => return Err("Invalid cond clause".to_string()),
+            _ => {
+                return Err(
+                    "Invalid cond clause".to_string()
+                )
+            }
         }
     }
 
     Err("No cond clause matched".to_string())
 }
 
-fn eval_obj_keyword(obj: &[Object], env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_obj_keyword(
+    obj: &[Object],
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     if obj.len() != 2 {
-        return Err("Invalid number of arguments for eval".to_string());
+        return Err("Invalid number of arguments for eval"
+            .to_string());
     }
 
     let parameter = eval_obj(&obj[1], env)?;
     eval_obj(&parameter, env)
 }
 
-fn eval_list(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_list(
+    list: &Vec<Object>,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     // Empty list
     if list.is_empty() {
         return Ok(Object::Void);
@@ -413,9 +562,18 @@ fn eval_list(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<O
     let head = &list[0];
     match head {
         Object::Symbol(s) => match s.as_str() {
-            "+" | "-" | "*" | "/" | "<" | ">" | "=" | "!=" | "mod" => eval_binary_op(list, env),
-            "and" => eval_logical_operation(LogicalOp::And, list, env),
-            "or" => eval_logical_operation(LogicalOp::Or, list, env),
+            "+" | "-" | "*" | "/" | "<" | ">" | "="
+            | "!=" | "mod" => eval_binary_op(list, env),
+            "and" => eval_logical_operation(
+                LogicalOp::And,
+                list,
+                env,
+            ),
+            "or" => eval_logical_operation(
+                LogicalOp::Or,
+                list,
+                env,
+            ),
             "null?" => eval_null(list, env),
             "quote" => eval_quote(list),
             "cons" => eval_cons(list, env),
@@ -438,11 +596,16 @@ fn eval_list(list: &Vec<Object>, env: &mut Rc<RefCell<Env<Object>>>) -> Result<O
     }
 }
 
-fn eval_obj(obj: &Object, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+fn eval_obj(
+    obj: &Object,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     match obj {
         Object::List(list) => eval_list(list, env),
         Object::Void => Ok(Object::Void),
-        Object::Lambda(_params, _body, _fenv) => Ok(Object::Void),
+        Object::Lambda(_params, _body, _fenv) => {
+            Ok(Object::Void)
+        }
         Object::Bool(_) => Ok(obj.clone()),
         Object::String(s) => Ok(Object::String(s.clone())),
         Object::Number(n) => Ok(Object::Number(*n)),
@@ -450,10 +613,16 @@ fn eval_obj(obj: &Object, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, 
     }
 }
 
-pub fn eval(program: &str, env: &mut Rc<RefCell<Env<Object>>>) -> Result<Object, String> {
+pub fn eval(
+    program: &str,
+    env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
     let parsed_list = parse(program);
     if parsed_list.is_err() {
-        return Err(format!("{}", parsed_list.err().unwrap()));
+        return Err(format!(
+            "{}",
+            parsed_list.err().unwrap()
+        ));
     }
 
     match parsed_list.unwrap() {
@@ -741,7 +910,10 @@ mod tests {
         let result = eval(program, &mut env).unwrap();
         assert_eq!(
             result,
-            Object::List(vec![Object::Number(10.0), Object::Number(20.0),])
+            Object::List(vec![
+                Object::Number(10.0),
+                Object::Number(20.0),
+            ])
         );
     }
 
@@ -922,7 +1094,12 @@ mod tests {
         ";
 
         let result = eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::List(vec![Object::Symbol("a".to_string()),]));
+        assert_eq!(
+            result,
+            Object::List(vec![Object::Symbol(
+                "a".to_string()
+            ),])
+        );
     }
 
     #[test]
