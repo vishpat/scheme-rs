@@ -1,6 +1,6 @@
-use crate::env::*;
 use crate::object::*;
 use crate::parser::*;
+use crate::sym_table::*;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -8,7 +8,7 @@ use inkwell::passes::PassManager;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::BasicMetadataValueEnum;
-use inkwell::values::PointerValue;
+
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::AddressSpace;
 use inkwell::FloatPredicate;
@@ -18,62 +18,6 @@ use std::path::Path;
 use std::rc::Rc;
 
 const MAIN_FUNC_NAME: &str = "main";
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DataType {
-    Number,
-}
-
-#[derive(Debug, Clone)]
-pub struct Pointer<'ctx> {
-    pub ptr: PointerValue<'ctx>,
-    pub data_type: DataType,
-}
-
-pub struct SymTables<'ctx> {
-    pub tables: Vec<Env<Pointer<'ctx>>>,
-}
-
-impl<'ctx> SymTables<'ctx> {
-    pub fn new() -> Self {
-        Self {
-            tables: vec![Env::new()],
-        }
-    }
-
-    pub fn push_new_sym_table(&mut self) {
-        self.tables.push(Env::new());
-    }
-
-    pub fn pop_sym_table(&mut self) {
-        self.tables.pop();
-    }
-
-    pub fn add_symbol_value(
-        &mut self,
-        name: &str,
-        ptr: Pointer<'ctx>,
-    ) {
-        debug!("Adding symbol {} val: {:?}", name, ptr);
-        self.tables.last_mut().unwrap().set(name, ptr);
-    }
-
-    pub fn get_symbol_value(
-        &self,
-        name: &str,
-    ) -> Option<Pointer<'ctx>> {
-        let env = self.tables.last().unwrap();
-        if let Some(val) = env.get(name) {
-            debug!(
-                "Got symbol {} val: {:?} from sym table",
-                name, val
-            );
-            return Some(val.clone());
-        }
-
-        None
-    }
-}
 
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
@@ -250,10 +194,12 @@ fn compile_function_definition<'a>(
 
     let _func_body = match func_body {
         Object::List(l) => l.clone(),
-        _ => return Err(format!(
+        _ => {
+            return Err(format!(
             "Function definition body must be a list: {:?}",
             func_body
-        )),
+        ))
+        }
     };
 
     let val = compile_list(compiler, &_func_body)?
@@ -432,26 +378,25 @@ fn compile_quote<'a>(
                 "array",
             );
             for (i, obj) in l.iter().enumerate() {
-                let val =
-                    match obj {
-                        Object::Number(n) => {
-                            compile_number(compiler, n)
-                        }
-                        _ => return Err(format!(
+                let val = match obj {
+                    Object::Number(n) => {
+                        compile_number(compiler, n)
+                    }
+                    _ => {
+                        return Err(format!(
                             "Expected number, found: {}",
                             obj
-                        )),
-                    }?;
+                        ))
+                    }
+                }?;
                 let val = val.into_float_value();
                 let ptr = unsafe {
                     compiler.builder.build_gep(
                         compiler.float_type,
                         arr,
-                        &[
-                            compiler
-                                .int_type
-                                .const_int(i as u64, false),
-                        ],
+                        &[compiler
+                            .int_type
+                            .const_int(i as u64, false)],
                         "pointer",
                     )
                 };

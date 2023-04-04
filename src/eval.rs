@@ -280,30 +280,31 @@ fn eval_function_definition(
         ));
     }
 
-    let params =
-        match &list[1] {
-            Object::List(list) => {
-                let mut params = Vec::new();
-                for param in list {
-                    match param {
-                        Object::Symbol(s) => {
-                            params.push(s.clone())
-                        }
-                        _ => return Err(format!(
+    let params = match &list[1] {
+        Object::List(list) => {
+            let mut params = Vec::new();
+            for param in list {
+                match param {
+                    Object::Symbol(s) => {
+                        params.push(s.clone())
+                    }
+                    _ => {
+                        return Err(format!(
                             "Invalid lambda parameter {:?}",
                             param
-                        )),
+                        ))
                     }
                 }
-                params
             }
-            _ => {
-                return Err(format!(
-                    "Invalid lambda {:?}",
-                    list[1].clone()
-                ))
-            }
-        };
+            params
+        }
+        _ => {
+            return Err(format!(
+                "Invalid lambda {:?}",
+                list[1].clone()
+            ))
+        }
+    };
 
     let body = match &list[2] {
         Object::List(list) => list.clone(),
@@ -458,10 +459,12 @@ fn eval_logical_operation(
         let obj = eval_obj(l, env)?;
         let val = match obj {
             Object::Bool(b) => b,
-            _ => return Err(format!(
+            _ => {
+                return Err(format!(
                 "Invalid logical operation argument: {:?}",
                 obj
-            )),
+            ))
+            }
         };
         result = match op {
             LogicalOp::And => result && val,
@@ -517,10 +520,12 @@ fn eval_cond(
                 let cond = eval_obj(&list[0], env)?;
                 let cond_val = match cond {
                     Object::Bool(b) => b,
-                    _ => return Err(format!(
+                    _ => {
+                        return Err(format!(
                         "Condition must be a boolean {:?}",
                         cond
-                    )),
+                    ))
+                    }
                 };
                 if cond_val {
                     return eval_obj(&list[1], env);

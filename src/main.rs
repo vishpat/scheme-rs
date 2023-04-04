@@ -4,6 +4,7 @@ mod eval;
 mod lexer;
 mod object;
 mod parser;
+mod sym_table;
 mod test;
 
 use compiler::compile_program;
