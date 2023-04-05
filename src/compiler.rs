@@ -8,10 +8,10 @@ use inkwell::passes::PassManager;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::BasicMetadataValueEnum;
-
 use inkwell::values::{FloatValue, FunctionValue};
 use inkwell::AddressSpace;
 use inkwell::FloatPredicate;
+use inkwell::OptimizationLevel;
 use log::debug;
 use std::cell::RefCell;
 use std::path::Path;
@@ -33,7 +33,7 @@ pub struct Compiler<'ctx> {
 impl<'ctx> Compiler<'ctx> {
     pub fn new(context: &'ctx Context) -> Self {
         let builder = context.create_builder();
-        let module = context.create_module("main");
+        let module = context.create_module(MAIN_FUNC_NAME);
         let fpm = PassManager::create(&module);
         let sym_tables =
             Rc::new(RefCell::new(SymTables::new()));
@@ -664,7 +664,7 @@ pub fn compile_program(
 
     let main_func = compiler.module.add_function(
         MAIN_FUNC_NAME,
-        compiler.context.i64_type().fn_type(&[], false),
+        compiler.int_type.fn_type(&[], false),
         None,
     );
 
@@ -679,15 +679,15 @@ pub fn compile_program(
             let mut idx = 0;
             for obj in list {
                 let val = compile_obj(&compiler, &obj)?;
-                let int_val = match val {
+                let ret_val = match val {
                     AnyValueEnum::FloatValue(_) => {
                         let val = val.into_float_value();
                         compiler
                             .builder
-                            .build_float_to_signed_int(
+                            .build_float_to_unsigned_int(
                                 val,
-                                compiler.context.i64_type(),
-                                "inttmp",
+                                compiler.int_type,
+                                "rettmp",
                             )
                     }
                     _ => compiler.int_type.const_zero(),
@@ -697,7 +697,7 @@ pub fn compile_program(
                 if idx == list_len {
                     compiler
                         .builder
-                        .build_return(Some(&int_val));
+                        .build_return(Some(&ret_val));
                 }
             }
         }
@@ -711,5 +711,22 @@ pub fn compile_program(
         .print_to_file(Path::new("main.ll"))
         .unwrap();
 
+    println!("Running execution engine...");
+    let execution_engine = compiler
+        .module
+        .create_jit_execution_engine(
+            OptimizationLevel::None,
+        )
+        .unwrap();
+
+    let main = execution_engine
+        .get_function_value(MAIN_FUNC_NAME)
+        .unwrap();
+
+    let ret = unsafe {
+        execution_engine.run_function_as_main(main, &[])
+    };
+
+    println!("Result: {:?}", ret);
     Ok(())
 }
