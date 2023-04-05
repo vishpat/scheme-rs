@@ -164,13 +164,6 @@ fn eval_define(
                         .to_string(),
                 ),
             };
-        match &list[2] {
-            Object::List(l) => l.clone(),
-            _ => {
-                return Err("Invalid function body: define"
-                    .to_string())
-            }
-        };
         let function_definition =
             vec![Object::Void, params, list[2].clone()];
         eval_function_definition(&function_definition, env)?
