@@ -114,8 +114,13 @@ fn process_symbol<'ctx>(
 
 fn compile_function_prototype<'a>(
     compiler: &'a Compiler,
-    func_proto: &'a [Object],
+    func_proto: &'a Object,
 ) -> Result<FunctionValue<'a>, String> {
+    let func_proto = match func_proto {
+        Object::List(l) => l,
+        _ => return Err("Expected list".to_string()),
+    };
+
     let func_name = match &func_proto[0] {
         Object::Symbol(s) => s,
         _ => return Err("Expected symbol".to_string()),
@@ -143,7 +148,7 @@ fn compile_function_prototype<'a>(
 
 fn compile_function_definition<'a>(
     compiler: &'a Compiler,
-    func_proto: &'a [Object],
+    func_proto: &'a Object,
     func_body: &'a Object,
 ) -> Result<FloatValue<'a>, String> {
     debug!(
@@ -192,8 +197,16 @@ fn compile_function_definition<'a>(
         }
     }
 
-    let _func_body = match func_body {
-        Object::List(l) => l.clone(),
+    let val = match func_body {
+        Object::List(l) => {
+            compile_list(compiler, &l)?.into_float_value()
+        }
+        Object::Number(n) => {
+            compile_number(compiler, n)?.into_float_value()
+        }
+        Object::Symbol(s) => {
+            process_symbol(compiler, s)?.into_float_value()
+        }
         _ => {
             return Err(format!(
             "Function definition body must be a list: {:?}",
@@ -202,9 +215,8 @@ fn compile_function_definition<'a>(
         }
     };
 
-    let val = compile_list(compiler, &_func_body)?
-        .into_float_value();
     compiler.builder.build_return(Some(&val));
+
     func_proto.verify(true);
 
     compiler.sym_tables.borrow_mut().pop_sym_table();
@@ -322,34 +334,18 @@ fn compile_define<'a>(
         ));
     }
     debug!("Processing define: {:?}", list);
-
-    let mut func_proto = Vec::new();
-    let is_function = match &list[1] {
-        Object::List(proto) => {
-            func_proto = proto.clone();
-            true
-        }
-        _ => false,
-    };
-
-    match &list[2] {
-        Object::Number(_) => {
+    match &list[1] {
+        Object::Symbol(_) => {
             compile_define_obj(compiler, list)
         }
         Object::List(_) => {
-            if is_function {
-                compile_function_definition(
-                    compiler,
-                    &func_proto,
-                    &list[2],
-                )?;
-                Ok(compiler
-                    .float_type
-                    .const_zero()
-                    .as_any_value_enum())
-            } else {
-                compile_define_obj(compiler, list)
-            }
+            compile_function_definition(
+                compiler, &list[1], &list[2],
+            )?;
+            Ok(compiler
+                .float_type
+                .const_zero()
+                .as_any_value_enum())
         }
         _ => Err("Expected symbol".to_string()),
     }
@@ -759,5 +755,50 @@ mod tests {
         (fib 10)";
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 55);
+    }
+
+    #[test]
+    fn test_simple_if() {
+        let program = "(if (> 1 2) 1 2)";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 2);
+    }
+
+    #[test]
+    fn test_functions() {
+        let program = "
+            (define pi 3.14)
+
+            (define (area-of-circle r)
+                    (* pi (* r r)))
+
+            (define (area-of-square x)
+                    (* x x))
+
+            (define r (area-of-square 2))
+            (area-of-circle r)
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 50);
+    }
+
+    #[test]
+    fn test_define() {
+        let program = "
+            (define pi 3.14)
+            pi
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 3);
+    }
+
+    #[test]
+    fn test_functions_2() {
+        let program = "
+            (define (pi) 3.14)
+            (pi)
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 3);
     }
 }
