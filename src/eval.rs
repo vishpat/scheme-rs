@@ -164,13 +164,6 @@ fn eval_define(
                         .to_string(),
                 ),
             };
-        match &list[2] {
-            Object::List(l) => l.clone(),
-            _ => {
-                return Err("Invalid function body: define"
-                    .to_string())
-            }
-        };
         let function_definition =
             vec![Object::Void, params, list[2].clone()];
         eval_function_definition(&function_definition, env)?
@@ -300,17 +293,21 @@ fn eval_function_definition(
         }
         _ => {
             return Err(format!(
-                "Invalid lambda {:?}",
+                "Invalid lambda parameters {:?}",
                 list[1].clone()
             ))
         }
     };
 
     let body = match &list[2] {
+        Object::Number(n) => vec![Object::Number(*n)],
+        Object::Symbol(s) => {
+            vec![Object::Symbol(s.clone())]
+        }
         Object::List(list) => list.clone(),
         _ => {
             return Err(format!(
-                "Invalid lambda {:?}",
+                "Invalid lambda body {:?}",
                 list[2].clone()
             ))
         }

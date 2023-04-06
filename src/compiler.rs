@@ -653,9 +653,9 @@ fn compile_obj<'a>(
     val
 }
 
-pub fn compile_program(
+pub fn compile_and_run_program(
     program: &str,
-) -> Result<(), String> {
+) -> Result<i32, String> {
     let obj = parse(program).unwrap_or_else(|e| {
         panic!("Error parsing program: {}", e)
     });
@@ -728,5 +728,36 @@ pub fn compile_program(
     };
 
     println!("Result: {:?}", ret);
-    Ok(())
+    Ok(ret)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simple_add() {
+        let program = "(+ 1 2)";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 3);
+    }
+
+    #[test]
+    fn test_simple_sub() {
+        let program = "(- (+ 1 2) (- 3 4))";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 4);
+    }
+
+    #[test]
+    fn test_fibonaci() {
+        let program = "
+        (define (fib n)
+            (if (<= n 2)
+                1
+                (+ (fib (- n 1)) (fib (- n 2)))))
+        (fib 10)";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 55);
+    }
 }
