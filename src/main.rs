@@ -7,7 +7,7 @@ mod parser;
 mod sym_table;
 mod test;
 
-use compiler::compile_program;
+use compiler::compile_and_run_program;
 use linefeed::{Interface, ReadResult};
 use object::Object;
 use std::cell::RefCell;
@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut contents = String::new();
         file.read_to_string(&mut contents)
             .expect("Could not read file");
-        compile_program(&contents)
+        compile_and_run_program(&contents)
             .unwrap_or_else(|e| panic!("{}", e));
     }
 
