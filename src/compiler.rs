@@ -28,6 +28,8 @@ pub struct Compiler<'ctx> {
     pub sym_tables: Rc<RefCell<SymTables<'ctx>>>,
     pub int_type: inkwell::types::IntType<'ctx>,
     pub float_type: inkwell::types::FloatType<'ctx>,
+    pub node_type: inkwell::types::StructType<'ctx>,
+    pub node_null: inkwell::values::PointerValue<'ctx>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -37,6 +39,21 @@ impl<'ctx> Compiler<'ctx> {
         let fpm = PassManager::create(&module);
         let sym_tables =
             Rc::new(RefCell::new(SymTables::new()));
+        let node_type = context.opaque_struct_type("node");
+        node_type.set_body(
+            &[
+                context.f64_type().into(),
+                node_type
+                    .ptr_type(AddressSpace::default())
+                    .into(),
+            ],
+            false,
+        );
+        let node_null = builder.build_int_to_ptr(
+            context.i64_type().const_zero(),
+            node_type.ptr_type(AddressSpace::default()),
+            "null",
+        );
 
         Self {
             context,
@@ -46,6 +63,8 @@ impl<'ctx> Compiler<'ctx> {
             sym_tables,
             int_type: context.i64_type(),
             float_type: context.f64_type(),
+            node_type,
+            node_null,
         }
     }
 }
@@ -199,7 +218,7 @@ fn compile_function_definition<'a>(
 
     let val = match func_body {
         Object::List(l) => {
-            compile_list(compiler, &l)?.into_float_value()
+            compile_list(compiler, l)?.into_float_value()
         }
         Object::Number(n) => {
             compile_number(compiler, n)?.into_float_value()
@@ -363,52 +382,52 @@ fn compile_quote<'a>(
     }
     debug!("Processing quote: {:?}", list);
 
-    let val = match &list[1] {
+    match &list[1] {
         Object::List(l) => {
-            let arr_len = compiler
-                .int_type
-                .const_int((l.len() + 1) as u64, false);
-            let arr = compiler.builder.build_array_alloca(
-                compiler.float_type,
-                arr_len,
-                "array",
-            );
-            for (i, obj) in l.iter().enumerate() {
-                let val = match obj {
-                    Object::Number(n) => {
-                        compile_number(compiler, n)
-                    }
-                    _ => {
-                        return Err(format!(
-                            "Expected number, found: {}",
-                            obj
-                        ))
-                    }
-                }?;
-                let val = val.into_float_value();
-                let ptr = unsafe {
-                    compiler.builder.build_gep(
-                        compiler.float_type,
-                        arr,
-                        &[compiler
-                            .int_type
-                            .const_int(i as u64, false)],
-                        "pointer",
-                    )
-                };
-                compiler.builder.build_store(ptr, val);
-            }
-            arr.as_any_value_enum()
-        }
-        _ => {
-            return Err(format!(
-                "Expected list, found: {}",
-                list[1]
-            ))
-        }
-    };
+            let mut prev = None;
+            for obj in l.iter().rev() {
+                let ir_obj = compile_obj(compiler, obj)?;
+                let node_ptr =
+                    compiler.builder.build_alloca(
+                        compiler.node_type,
+                        "node",
+                    );
+                let data_ptr =
+                    compiler.builder.build_struct_gep(
+                        compiler.node_type,
+                        node_ptr,
+                        0,
+                        "data",
+                    ).map_err(|_e| "Unable to build data pointer for struct".to_string())?;
+                compiler.builder.build_store(
+                    data_ptr,
+                    ir_obj.into_float_value(),
+                );
 
-    Ok(val)
+                let next_ptr =
+                    compiler.builder.build_struct_gep(
+                        compiler.node_type,
+                        node_ptr,
+                        1,
+                        "next",
+                    ).map_err(|_e| "Unable to build next pointer for struct".to_string())?;
+
+                if let Some(prev) = prev {
+                    compiler
+                        .builder
+                        .build_store(next_ptr, prev);
+                } else {
+                    compiler.builder.build_store(
+                        next_ptr,
+                        compiler.node_null,
+                    );
+                }
+                prev = Some(node_ptr);
+            }
+            Ok(prev.unwrap().as_any_value_enum())
+        }
+        _ => Err("Expected number".to_string()),
+    }
 }
 
 fn compile_if<'a>(
@@ -800,5 +819,14 @@ mod tests {
         ";
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 3);
+    }
+
+    #[test]
+    fn test_quote() {
+        let program = "
+            (quote (1 2 3))
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 0);
     }
 }
