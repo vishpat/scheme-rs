@@ -25,7 +25,7 @@ pub fn compile_quote<'a>(
 
     match &list[1] {
         Object::List(l) => {
-            let mut prev = None;
+            let mut prev = Some(compiler.node_null);
             for obj in l.iter().rev() {
                 let ir_obj = compile_obj(compiler, obj)?;
                 let node_ptr =
@@ -252,6 +252,31 @@ fn compile_binary_expr<'a>(
     Ok(val.as_any_value_enum())
 }
 
+pub fn compile_null<'a>(
+    compiler: &'a Compiler,
+    list: &'a Vec<Object>,
+) -> CompileResult<'a> {
+
+    if list.len() != 2 {
+        return Err(format!(
+            "Expected 1 argument, found {:?}",
+            list
+        ));
+    }
+
+    let val = compile_obj(compiler, &list[1])?;
+    debug!("Compiling null?: rhs {:?}", val); 
+    return Ok(compiler
+        .builder
+        .build_float_compare(
+            FloatPredicate::UEQ,
+            val.into_float_value(),
+            compiler.context.f64_type().const_zero(),
+            "nulltmp",
+        )
+        .as_any_value_enum()); 
+}
+
 pub fn compile_list<'a>(
     compiler: &'a Compiler,
     list: &'a Vec<Object>,
@@ -266,6 +291,7 @@ pub fn compile_list<'a>(
         Object::Symbol(s) => match s.as_str() {
             "define" => compile_define(compiler, list),
             "quote" => compile_quote(compiler, list),
+            "null?" => compile_null(compiler, list),
             "if" => compile_if(compiler, list),
             "+" | "-" | "*" | "/" | ">" | "<" | ">="
             | "<=" | "==" | "!=" => {

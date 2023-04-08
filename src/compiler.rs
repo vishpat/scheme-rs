@@ -37,6 +37,7 @@ pub struct Compiler<'ctx> {
     pub float_type: inkwell::types::FloatType<'ctx>,
     pub node_type: inkwell::types::StructType<'ctx>,
     pub node_null: inkwell::values::PointerValue<'ctx>,
+    pub bool_type: inkwell::types::IntType<'ctx>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -62,6 +63,8 @@ impl<'ctx> Compiler<'ctx> {
             "null",
         );
 
+        let bool_type = context.bool_type();
+
         Self {
             context,
             builder,
@@ -72,6 +75,7 @@ impl<'ctx> Compiler<'ctx> {
             float_type: context.f64_type(),
             node_type,
             node_null,
+            bool_type,
         }
     }
 }
@@ -263,6 +267,26 @@ mod tests {
     fn test_quote() {
         let program = "
             (quote (1 2 3))
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 0);
+    }
+
+
+    #[test]
+    fn test_quote_empty_list() {
+        let program = "
+            (quote ())
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 0);
+    }
+
+
+    #[test]
+    fn test_null() {
+        let program = "
+            (null? 0)
         ";
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 0);
