@@ -8,6 +8,7 @@ use crate::compiler::Compiler;
 use crate::object::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
+use inkwell::AddressSpace;
 use inkwell::FloatPredicate;
 use log::debug;
 
@@ -246,6 +247,96 @@ fn compile_binary_expr<'a>(
     Ok(val)
 }
 
+pub fn compile_car<'a>(
+    compiler: &'a Compiler,
+    list: &'a Vec<Object>,
+) -> CompileResult<'a> {
+    if list.len() != 2 {
+        return Err(format!(
+            "car: Expected 1 argument, found {:?}",
+            list
+        ));
+    }
+
+    let val = compile_obj(compiler, &list[1])?;
+    debug!("Compiling car: rhs : 1 {:?}", val);
+
+    let val = match val {
+        AnyValueEnum::PointerValue(v) => v,
+        _ => {
+            return Err(format!(
+                "Cannot compile car expected pointer, found: {:?}",
+                list[1]
+            ))
+        }
+    };
+
+    debug!("Compiling car: rhs : 2 {:?}", val);
+    let val = compiler
+        .builder
+        .build_struct_gep(
+            compiler.node_type,
+            val,
+            0,
+            "geptmp",
+        )
+        .map_err(|_e| {
+            "Unable to load node for car".to_string()
+        })?;
+    let val = compiler.builder.build_load(
+        compiler.float_type,
+        val,
+        "loadtmp",
+    );
+    Ok(val.as_any_value_enum())
+}
+
+pub fn compile_cdr<'a>(
+    compiler: &'a Compiler,
+    list: &'a Vec<Object>,
+) -> CompileResult<'a> {
+    if list.len() != 2 {
+        return Err(format!(
+            "cdr: Expected 1 argument, found {:?}",
+            list
+        ));
+    }
+
+    let val = compile_obj(compiler, &list[1])?;
+    debug!("Compiling cdr: rhs : 1 {:?}", val);
+
+    let val = match val {
+        AnyValueEnum::PointerValue(v) => v,
+        _ => {
+            return Err(format!(
+                "Cannot compile cdr expected pointer, found: {:?}",
+                list[1]
+            ))
+        }
+    };
+
+    debug!("Compiling cdr: rhs : 2 {:?}", val);
+    let val = compiler
+        .builder
+        .build_struct_gep(
+            compiler.node_type,
+            val,
+            1,
+            "geptmp",
+        )
+        .map_err(|_e| {
+            "Unable to load node for car".to_string()
+        })?;
+    let val = compiler.builder.build_load(
+        compiler
+            .node_type
+            .ptr_type(AddressSpace::default()),
+        val,
+        "loadtmp",
+    );
+    Ok(val.as_any_value_enum())
+}
+
 pub fn compile_null<'a>(
     compiler: &'a Compiler,
     list: &'a Vec<Object>,
@@ -291,6 +382,8 @@ pub fn compile_list<'a>(
             "define" => compile_define(compiler, list),
             "quote" => compile_quote(compiler, list),
             "null?" => compile_null(compiler, list),
+            "car" => compile_car(compiler, list),
+            "cdr" => compile_cdr(compiler, list),
             "if" => compile_if(compiler, list),
             "+" | "-" | "*" | "/" | ">" | "<" | ">="
             | "<=" | "==" | "!=" => {

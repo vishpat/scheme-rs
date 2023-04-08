@@ -298,4 +298,22 @@ mod tests {
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 2);
     }
+
+    #[test]
+    fn test_car() {
+        let program = "
+            (car (quote (2 3 4)))
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 2);
+    }
+
+    #[test]
+    fn test_cdr() {
+        let program = "
+            (car (cdr (quote (2 3 4))))
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 3);
+    }
 }
