@@ -284,9 +284,18 @@ mod tests {
     #[test]
     fn test_null() {
         let program = "
-            (null? 0)
+            (if (null? (quote ())) 1 2)
         ";
         let ret = compile_and_run_program(program).unwrap();
-        assert_eq!(ret, 0);
+        assert_eq!(ret, 1);
+    }
+
+    #[test]
+    fn test_not_null() {
+        let program = "
+            (if (null? (quote (1))) 1 2)
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 2);
     }
 }
