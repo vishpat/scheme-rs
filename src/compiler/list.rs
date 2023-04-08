@@ -82,13 +82,7 @@ fn compile_if<'a>(
         ));
     }
     let cond_ir = compile_obj(compiler, &list[1])?;
-    let cond_ir = cond_ir.into_float_value();
-    let cond_bool = compiler.builder.build_float_compare(
-        inkwell::FloatPredicate::ONE,
-        cond_ir,
-        compiler.float_type.const_zero(),
-        "ifcond",
-    );
+    let cond_bool = cond_ir.into_int_value();
 
     let curr_func = compiler
         .builder
@@ -205,16 +199,20 @@ fn compile_binary_expr<'a>(
     let val = match binary_op {
         "+" => compiler
             .builder
-            .build_float_add(left, right, "addtmp"),
+            .build_float_add(left, right, "addtmp")
+            .as_any_value_enum(),
         "-" => compiler
             .builder
-            .build_float_sub(left, right, "subtmp"),
+            .build_float_sub(left, right, "subtmp")
+            .as_any_value_enum(),
         "*" => compiler
             .builder
-            .build_float_mul(left, right, "multmp"),
+            .build_float_mul(left, right, "multmp")
+            .as_any_value_enum(),
         "/" => compiler
             .builder
-            .build_float_div(left, right, "divtmp"),
+            .build_float_div(left, right, "divtmp")
+            .as_any_value_enum(),
         ">" | "<" | ">=" | "<=" | "==" | "!=" => {
             let op = match binary_op {
                 ">" => FloatPredicate::UGT,
@@ -231,16 +229,12 @@ fn compile_binary_expr<'a>(
                 }
             };
 
-            let cmp_as_intval =
-                compiler.builder.build_float_compare(
+            compiler
+                .builder
+                .build_float_compare(
                     op, left, right, "cmptmp",
-                );
-
-            compiler.builder.build_unsigned_int_to_float(
-                cmp_as_intval,
-                compiler.float_type,
-                "booltmp",
-            )
+                )
+                .as_any_value_enum()
         }
         _ => {
             return Err(format!(
@@ -249,7 +243,7 @@ fn compile_binary_expr<'a>(
             ))
         }
     };
-    Ok(val.as_any_value_enum())
+    Ok(val)
 }
 
 pub fn compile_null<'a>(
