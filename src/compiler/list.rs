@@ -256,7 +256,6 @@ pub fn compile_null<'a>(
     compiler: &'a Compiler,
     list: &'a Vec<Object>,
 ) -> CompileResult<'a> {
-
     if list.len() != 2 {
         return Err(format!(
             "Expected 1 argument, found {:?}",
@@ -265,16 +264,19 @@ pub fn compile_null<'a>(
     }
 
     let val = compile_obj(compiler, &list[1])?;
-    debug!("Compiling null?: rhs {:?}", val); 
-    return Ok(compiler
-        .builder
-        .build_float_compare(
-            FloatPredicate::UEQ,
-            val.into_float_value(),
-            compiler.context.f64_type().const_zero(),
-            "nulltmp",
-        )
-        .as_any_value_enum()); 
+    debug!(
+        "Compiling null?: rhs {:?} {}",
+        val,
+        val.into_float_value()
+    );
+    let cmp = compiler.builder.build_float_compare(
+        FloatPredicate::UEQ,
+        val.into_float_value(),
+        compiler.float_type.const_zero(),
+        "nulltmp",
+    );
+    debug!("Compiling null?: cmp {:?}", cmp);
+    return Ok(cmp.as_any_value_enum());
 }
 
 pub fn compile_list<'a>(

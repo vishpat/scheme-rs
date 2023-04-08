@@ -272,7 +272,6 @@ mod tests {
         assert_eq!(ret, 0);
     }
 
-
     #[test]
     fn test_quote_empty_list() {
         let program = "
@@ -281,7 +280,6 @@ mod tests {
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 0);
     }
-
 
     #[test]
     fn test_null() {
