@@ -4,7 +4,6 @@ use crate::compiler::number::compile_number;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
-use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::AddressSpace;
 use log::debug;
@@ -26,11 +25,10 @@ pub fn compile_define_obj<'a>(
         _ => return Err("Expected symbol".to_string()),
     };
 
-    let mut set_global = true;
     let val = match &list[2] {
         Object::Number(n) => compile_number(compiler, n),
         Object::List(l) => {
-            set_global = false;
+            println!("Processing list: {:?}", l);
             compile_list(compiler, l)
         }
         _ => {
@@ -47,22 +45,12 @@ pub fn compile_define_obj<'a>(
         .build_alloca(compiler.float_type, name);
     compiler.builder.build_store(ptr, val);
 
-    if set_global {
-        let global_val = compiler.module.add_global(
-            compiler.float_type,
-            Some(AddressSpace::default()),
-            name,
-        );
-        global_val.set_initializer(&val);
-    } else {
-        compiler.sym_tables.borrow_mut().add_symbol_value(
-            name,
-            Pointer {
-                ptr,
-                data_type: DataType::Number,
-            },
-        );
-    }
+    let global_val = compiler.module.add_global(
+        compiler.float_type,
+        Some(AddressSpace::default()),
+        name,
+    );
+    global_val.set_initializer(&val);
 
     Ok(compiler.float_type.const_zero().as_any_value_enum())
 }

@@ -135,7 +135,7 @@ pub fn compile_and_run_program(
     }
 
     compiler.fpm.run_on(&main_func);
-    compiler.module.print_to_stderr();
+    //    compiler.module.print_to_stderr();
     compiler
         .module
         .print_to_file(Path::new("main.ll"))
@@ -236,8 +236,7 @@ mod tests {
             (define (area-of-square x)
                     (* x x))
 
-            (define r (area-of-square 2))
-            (area-of-circle r)
+            (area-of-circle 4)
         ";
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 50);
