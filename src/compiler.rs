@@ -3,7 +3,7 @@ mod function;
 mod list;
 mod number;
 mod symbol;
-
+mod util;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
 use crate::compiler::symbol::process_symbol;
@@ -138,7 +138,7 @@ pub fn compile_and_run_program(
     }
 
     compiler.fpm.run_on(&main_func);
-    //    compiler.module.print_to_stderr();
+    compiler.module.print_to_stderr();
     compiler
         .module
         .print_to_file(Path::new("main.ll"))
@@ -177,10 +177,10 @@ fn compile_obj<'a>(
             match val {
                 AnyValueEnum::FloatValue(v) => {
                     Ok(v.as_any_value_enum())
-                },
+                }
                 AnyValueEnum::PointerValue(v) => {
                     Ok(v.as_any_value_enum())
-                },
+                }
                 _ => Err(format!(
                     "Cannot compile object: {:?}",
                     obj
