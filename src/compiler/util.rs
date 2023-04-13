@@ -1,5 +1,8 @@
 use crate::compiler::Compiler;
-use inkwell::{values::{FunctionValue, PointerValue}, types::BasicType};
+use inkwell::{
+    types::BasicType,
+    values::{FunctionValue, PointerValue},
+};
 
 pub fn create_entry_block_alloca<'ctx, T>(
     compiler: &'ctx Compiler,
@@ -7,7 +10,9 @@ pub fn create_entry_block_alloca<'ctx, T>(
     typ: T,
     sym: &str,
 ) -> PointerValue<'ctx>
-where T: BasicType<'ctx> {
+where
+    T: BasicType<'ctx>,
+{
     let entry = function.get_first_basic_block().unwrap();
 
     match entry.get_first_instruction() {
