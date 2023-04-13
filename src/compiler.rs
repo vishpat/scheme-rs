@@ -38,6 +38,7 @@ pub struct Compiler<'ctx> {
     pub node_type: inkwell::types::StructType<'ctx>,
     pub node_null: inkwell::values::PointerValue<'ctx>,
     pub bool_type: inkwell::types::IntType<'ctx>,
+    pub main_func: FunctionValue<'ctx>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -64,6 +65,11 @@ impl<'ctx> Compiler<'ctx> {
         );
 
         let bool_type = context.bool_type();
+        let main_func = module.add_function(
+            MAIN_FUNC_NAME,
+            context.i64_type().fn_type(&[], false),
+            None,
+        );
 
         Self {
             context,
@@ -76,6 +82,7 @@ impl<'ctx> Compiler<'ctx> {
             node_type,
             node_null,
             bool_type,
+            main_func: main_func,
         }
     }
 }
@@ -92,11 +99,7 @@ pub fn compile_and_run_program(
     let context = Context::create();
     let compiler = Compiler::new(&context);
 
-    let main_func = compiler.module.add_function(
-        MAIN_FUNC_NAME,
-        compiler.int_type.fn_type(&[], false),
-        None,
-    );
+    let main_func = compiler.main_func;
 
     let main_block = compiler
         .context
