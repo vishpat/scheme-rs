@@ -391,11 +391,9 @@ pub fn compile_list<'a>(
             }
             _ => compile_function_call(compiler, list),
         },
-        _ => {
-            return Err(format!(
-                "Cannot compile list 4.: {:?}",
-                list
-            ))
-        }
+        _ => Err(format!(
+            "Cannot compile list 4.: {:?}",
+            list
+        )),
     }
 }
