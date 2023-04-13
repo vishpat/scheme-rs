@@ -177,7 +177,10 @@ fn compile_obj<'a>(
             match val {
                 AnyValueEnum::FloatValue(v) => {
                     Ok(v.as_any_value_enum())
-                }
+                },
+                AnyValueEnum::PointerValue(v) => {
+                    Ok(v.as_any_value_enum())
+                },
                 _ => Err(format!(
                     "Cannot compile object: {:?}",
                     obj
