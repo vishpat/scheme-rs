@@ -5,6 +5,9 @@ use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
 use inkwell::values::AnyValue;
+use inkwell::values::AnyValueEnum::{
+    FloatValue, PointerValue,
+};
 use inkwell::AddressSpace;
 use log::debug;
 
@@ -39,20 +42,43 @@ pub fn compile_define_obj<'a>(
         }
     }?;
 
-    let val = val.into_float_value();
-    let ptr = compiler
-        .builder
-        .build_alloca(compiler.float_type, name);
-    compiler.builder.build_store(ptr, val);
+    match val {
+        FloatValue(f) => {
+            let ptr = compiler
+                .builder
+                .build_alloca(compiler.float_type, name);
+            compiler.builder.build_store(ptr, f);
+            let global_val = compiler.module.add_global(
+                compiler.float_type,
+                Some(AddressSpace::default()),
+                name,
+            );
+            global_val.set_initializer(&f);
+        }
+        PointerValue(p) => {
+            let ptr = compiler
+                .builder
+                .build_alloca(p.get_type(), name);
+            compiler.builder.build_store(ptr, p);
 
-    let global_val = compiler.module.add_global(
-        compiler.float_type,
-        Some(AddressSpace::default()),
-        name,
-    );
-    global_val.set_initializer(&val);
+            let global_val = compiler.module.add_global(
+                compiler
+                    .node_type
+                    .ptr_type(AddressSpace::default()),
+                Some(AddressSpace::default()),
+                name,
+            );
+            global_val.set_initializer(&p);
+        }
+        _ => {
+            return Err(format!(
+                "Unexpected value: {:?}",
+                list[1]
+            ))
+        }
+    }
 
-    Ok(compiler.float_type.const_zero().as_any_value_enum())
+    Ok(val.as_any_value_enum())
 }
 
 pub fn compile_define<'a>(
