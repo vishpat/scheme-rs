@@ -9,7 +9,6 @@ use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum::{
     FloatValue, PointerValue,
 };
-use inkwell::AddressSpace;
 use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -52,27 +51,36 @@ pub fn compile_define_obj<'a>(
                 .builder
                 .build_alloca(compiler.float_type, name);
             compiler.builder.build_store(ptr, f);
-            let global_val = compiler.module.add_global(
-                compiler.float_type,
-                Some(AddressSpace::default()),
-                name,
+            debug!(
+                "Adding number symbol: {} {:?}",
+                name, ptr
             );
-            global_val.set_initializer(&f);
+            sym_tables.borrow_mut().add_symbol_value(
+                name,
+                Pointer {
+                    ptr: ptr,
+                    data_type: DataType::Number,
+                },
+            );
         }
         PointerValue(p) => {
             let ptr = compiler
                 .builder
                 .build_alloca(p.get_type(), name);
             compiler.builder.build_store(ptr, p);
-
-            let global_val = compiler.module.add_global(
-                compiler
-                    .node_type
-                    .ptr_type(AddressSpace::default()),
-                Some(AddressSpace::default()),
+            debug!(
+                "Adding list symbol: {} {} {:?}",
                 name,
+                p.get_type(),
+                ptr
             );
-            global_val.set_initializer(&p);
+            sym_tables.borrow_mut().add_symbol_value(
+                name,
+                Pointer {
+                    ptr: ptr,
+                    data_type: DataType::List,
+                },
+            );
         }
         _ => {
             return Err(format!(

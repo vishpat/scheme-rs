@@ -2,6 +2,7 @@ use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::sym_table::*;
 use inkwell::values::AnyValue;
+use inkwell::AddressSpace;
 use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -11,30 +12,30 @@ pub fn process_symbol<'ctx>(
     sym: &str,
     sym_tables: &mut Rc<RefCell<SymTables<'ctx>>>,
 ) -> CompileResult<'ctx> {
-    let global_val = compiler.module.get_global(sym);
-    if let Some(g) = global_val {
-        let val = g.get_initializer().unwrap();
-        debug!(
-            "Loading global symbol: {} with value {:?}",
-            sym, val
-        );
-        compiler.builder.build_load(
-            compiler.float_type,
-            g.as_pointer_value(),
-            sym,
-        );
-        return Ok(val.as_any_value_enum());
-    }
-
     let val = sym_tables.borrow().get_symbol_value(sym);
 
     debug!("Processing symbol {} val: {:?}", sym, val);
     let x = match val {
         Some(p) => {
             if p.data_type == DataType::Number {
-                debug!("Loading symbol: {}", sym);
+                debug!(
+                    "Loading Number symbol: {} {:?}",
+                    sym, p
+                );
                 compiler.builder.build_load(
                     compiler.float_type,
+                    p.ptr,
+                    sym,
+                )
+            } else if p.data_type == DataType::List {
+                debug!(
+                    "Loading List symbol: {} {:?}",
+                    sym, p
+                );
+                compiler.builder.build_load(
+                    compiler
+                        .node_type
+                        .ptr_type(AddressSpace::default()),
                     p.ptr,
                     sym,
                 )
@@ -52,5 +53,11 @@ pub fn process_symbol<'ctx>(
             ))
         }
     };
+
+    debug!(
+        "Returning after processing symbol {} val: {:?}",
+        sym, x
+    );
+
     Ok(x.as_any_value_enum())
 }

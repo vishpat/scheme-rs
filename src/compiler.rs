@@ -45,8 +45,6 @@ impl<'ctx> Compiler<'ctx> {
         let builder = context.create_builder();
         let module = context.create_module(MAIN_FUNC_NAME);
         let fpm = PassManager::create(&module);
-        let sym_tables =
-            Rc::new(RefCell::new(SymTables::new()));
         let node_type = context.opaque_struct_type("node");
         node_type.set_body(
             &[
@@ -146,7 +144,7 @@ pub fn compile_and_run_program(
     }
 
     compiler.fpm.run_on(&main_func);
-    compiler.module.print_to_stderr();
+    //compiler.module.print_to_stderr();
     compiler
         .module
         .print_to_file(Path::new("main.ll"))
@@ -194,7 +192,7 @@ fn compile_obj<'a>(
                     Ok(v.as_any_value_enum())
                 }
                 _ => Err(format!(
-                    "Cannot compile object: {:?}",
+                    "Cannot compile object for symbol: {:?}",
                     obj
                 )),
             }
