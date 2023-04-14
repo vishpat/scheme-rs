@@ -5,6 +5,7 @@ use log::debug;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DataType {
     Number,
+    List,
 }
 
 #[derive(Debug, Clone)]

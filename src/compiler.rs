@@ -32,7 +32,6 @@ pub struct Compiler<'ctx> {
     pub module: Module<'ctx>,
     pub fpm:
         inkwell::passes::PassManager<FunctionValue<'ctx>>,
-    pub sym_tables: Rc<RefCell<SymTables<'ctx>>>,
     pub int_type: inkwell::types::IntType<'ctx>,
     pub float_type: inkwell::types::FloatType<'ctx>,
     pub node_type: inkwell::types::StructType<'ctx>,
@@ -76,7 +75,6 @@ impl<'ctx> Compiler<'ctx> {
             builder,
             module,
             fpm,
-            sym_tables,
             int_type: context.i64_type(),
             float_type: context.f64_type(),
             node_type,
@@ -98,6 +96,8 @@ pub fn compile_and_run_program(
     });
     let context = Context::create();
     let compiler = Compiler::new(&context);
+    let mut sym_tables =
+        Rc::new(RefCell::new(SymTables::new()));
 
     let main_func = compiler.main_func;
 
@@ -111,7 +111,11 @@ pub fn compile_and_run_program(
             let list_len = list.len();
             let mut idx = 0;
             for obj in list {
-                let val = compile_obj(&compiler, &obj)?;
+                let val = compile_obj(
+                    &compiler,
+                    &obj,
+                    &mut sym_tables,
+                )?;
                 let ret_val = match val {
                     AnyValueEnum::FloatValue(_) => {
                         let val = val.into_float_value();
@@ -167,13 +171,17 @@ pub fn compile_and_run_program(
 fn compile_obj<'a>(
     compiler: &'a Compiler,
     obj: &'a Object,
+    sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
 ) -> CompileResult<'a> {
     debug!("Compiling Object: {:?}", obj);
     let val = match obj {
         Object::Number(n) => compile_number(compiler, n),
-        Object::List(list) => compile_list(compiler, list),
+        Object::List(list) => {
+            compile_list(compiler, list, sym_tables)
+        }
         Object::Symbol(s) => {
-            let val = process_symbol(compiler, s)?;
+            let val =
+                process_symbol(compiler, s, sym_tables)?;
             match val {
                 AnyValueEnum::FloatValue(v) => {
                     Ok(v.as_any_value_enum())

@@ -3,10 +3,13 @@ use crate::compiler::Compiler;
 use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use log::debug;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub fn process_symbol<'ctx>(
     compiler: &'ctx Compiler,
     sym: &str,
+    sym_tables: &mut Rc<RefCell<SymTables<'ctx>>>,
 ) -> CompileResult<'ctx> {
     let global_val = compiler.module.get_global(sym);
     if let Some(g) = global_val {
@@ -23,8 +26,7 @@ pub fn process_symbol<'ctx>(
         return Ok(val.as_any_value_enum());
     }
 
-    let val =
-        compiler.sym_tables.borrow().get_symbol_value(sym);
+    let val = sym_tables.borrow().get_symbol_value(sym);
 
     debug!("Processing symbol {} val: {:?}", sym, val);
     let x = match val {

@@ -11,6 +11,8 @@ use inkwell::values::AnyValueEnum;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::FloatValue;
 use log::debug;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub fn compile_function_prototype<'a>(
     compiler: &'a Compiler,
@@ -50,6 +52,7 @@ pub fn compile_function_definition<'a>(
     compiler: &'a Compiler,
     func_proto: &'a Object,
     func_body: &'a Object,
+    sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
 ) -> Result<FloatValue<'a>, String> {
     debug!(
         "Compiling function prototype: {:?}",
@@ -70,7 +73,7 @@ pub fn compile_function_definition<'a>(
         "entry",
     );
     compiler.builder.position_at_end(entry);
-    compiler.sym_tables.borrow_mut().push_new_sym_table();
+    sym_tables.borrow_mut().push_new_sym_table();
 
     for p in
         func_proto.into_function_value().get_param_iter()
@@ -87,28 +90,28 @@ pub fn compile_function_definition<'a>(
                 .builder
                 .build_alloca(compiler.float_type, &name);
             compiler.builder.build_store(ptr, p);
-            compiler
-                .sym_tables
-                .borrow_mut()
-                .add_symbol_value(
-                    &name,
-                    Pointer {
-                        ptr,
-                        data_type: DataType::Number,
-                    },
-                );
+
+            sym_tables.borrow_mut().add_symbol_value(
+                &name,
+                Pointer {
+                    ptr,
+                    data_type: DataType::Number,
+                },
+            );
         }
     }
 
     let val = match func_body {
         Object::List(l) => {
-            compile_list(compiler, l)?.into_float_value()
+            compile_list(compiler, l, sym_tables)?
+                .into_float_value()
         }
         Object::Number(n) => {
             compile_number(compiler, n)?.into_float_value()
         }
         Object::Symbol(s) => {
-            process_symbol(compiler, s)?.into_float_value()
+            process_symbol(compiler, s, sym_tables)?
+                .into_float_value()
         }
         _ => {
             return Err(format!(
@@ -122,7 +125,7 @@ pub fn compile_function_definition<'a>(
 
     func_proto.into_function_value().verify(true);
 
-    compiler.sym_tables.borrow_mut().pop_sym_table();
+    sym_tables.borrow_mut().pop_sym_table();
 
     compiler.builder.position_at_end(current_bb);
     Ok(compiler.float_type.const_zero())
@@ -131,6 +134,7 @@ pub fn compile_function_definition<'a>(
 pub fn compile_function_call<'a>(
     compiler: &'a Compiler,
     list: &'a [Object],
+    sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
 ) -> CompileResult<'a> {
     let func_name = match &list[0] {
         Object::Symbol(s) => s,
@@ -146,7 +150,7 @@ pub fn compile_function_call<'a>(
 
     let compiled_args = list[1..]
         .iter()
-        .map(|a| compile_obj(compiler, a))
+        .map(|a| compile_obj(compiler, a, sym_tables))
         .collect::<Result<Vec<AnyValueEnum>, String>>()?;
     let compiled_args: Vec<BasicMetadataValueEnum> =
         compiled_args
