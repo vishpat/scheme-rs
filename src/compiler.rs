@@ -3,7 +3,6 @@ mod function;
 mod list;
 mod number;
 mod symbol;
-mod util;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
 use crate::compiler::symbol::process_symbol;
@@ -78,7 +77,7 @@ impl<'ctx> Compiler<'ctx> {
             node_type,
             node_null,
             bool_type,
-            main_func: main_func,
+            main_func,
         }
     }
 }

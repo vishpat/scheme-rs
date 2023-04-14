@@ -58,7 +58,7 @@ pub fn compile_define_obj<'a>(
             sym_tables.borrow_mut().add_symbol_value(
                 name,
                 Pointer {
-                    ptr: ptr,
+                    ptr,
                     data_type: DataType::Number,
                 },
             );
@@ -77,7 +77,7 @@ pub fn compile_define_obj<'a>(
             sym_tables.borrow_mut().add_symbol_value(
                 name,
                 Pointer {
-                    ptr: ptr,
+                    ptr,
                     data_type: DataType::List,
                 },
             );
