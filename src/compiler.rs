@@ -98,7 +98,7 @@ pub fn compile_and_run_program(
     let compiler = Compiler::new(&context);
     let mut sym_tables =
         Rc::new(RefCell::new(SymTables::new()));
-
+    let mut obj_vec = vec![];
     let main_func = compiler.main_func;
 
     let main_block = compiler
@@ -111,9 +111,13 @@ pub fn compile_and_run_program(
             let list_len = list.len();
             let mut idx = 0;
             for obj in list {
+                obj_vec.push(obj);
+            }
+
+            while idx < list_len {
                 let val = compile_obj(
                     &compiler,
-                    &obj,
+                    &obj_vec[idx],
                     &mut sym_tables,
                 )?;
                 let ret_val = match val {
