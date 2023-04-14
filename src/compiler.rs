@@ -3,7 +3,6 @@ mod function;
 mod list;
 mod number;
 mod symbol;
-mod util;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
 use crate::compiler::symbol::process_symbol;
@@ -32,7 +31,6 @@ pub struct Compiler<'ctx> {
     pub module: Module<'ctx>,
     pub fpm:
         inkwell::passes::PassManager<FunctionValue<'ctx>>,
-    pub sym_tables: Rc<RefCell<SymTables<'ctx>>>,
     pub int_type: inkwell::types::IntType<'ctx>,
     pub float_type: inkwell::types::FloatType<'ctx>,
     pub node_type: inkwell::types::StructType<'ctx>,
@@ -46,8 +44,6 @@ impl<'ctx> Compiler<'ctx> {
         let builder = context.create_builder();
         let module = context.create_module(MAIN_FUNC_NAME);
         let fpm = PassManager::create(&module);
-        let sym_tables =
-            Rc::new(RefCell::new(SymTables::new()));
         let node_type = context.opaque_struct_type("node");
         node_type.set_body(
             &[
@@ -76,13 +72,12 @@ impl<'ctx> Compiler<'ctx> {
             builder,
             module,
             fpm,
-            sym_tables,
             int_type: context.i64_type(),
             float_type: context.f64_type(),
             node_type,
             node_null,
             bool_type,
-            main_func: main_func,
+            main_func,
         }
     }
 }
@@ -98,7 +93,9 @@ pub fn compile_and_run_program(
     });
     let context = Context::create();
     let compiler = Compiler::new(&context);
-
+    let mut sym_tables =
+        Rc::new(RefCell::new(SymTables::new()));
+    let mut obj_vec = vec![];
     let main_func = compiler.main_func;
 
     let main_block = compiler
@@ -111,7 +108,15 @@ pub fn compile_and_run_program(
             let list_len = list.len();
             let mut idx = 0;
             for obj in list {
-                let val = compile_obj(&compiler, &obj)?;
+                obj_vec.push(obj);
+            }
+
+            while idx < list_len {
+                let val = compile_obj(
+                    &compiler,
+                    &obj_vec[idx],
+                    &mut sym_tables,
+                )?;
                 let ret_val = match val {
                     AnyValueEnum::FloatValue(_) => {
                         let val = val.into_float_value();
@@ -138,7 +143,7 @@ pub fn compile_and_run_program(
     }
 
     compiler.fpm.run_on(&main_func);
-    compiler.module.print_to_stderr();
+    //compiler.module.print_to_stderr();
     compiler
         .module
         .print_to_file(Path::new("main.ll"))
@@ -167,13 +172,17 @@ pub fn compile_and_run_program(
 fn compile_obj<'a>(
     compiler: &'a Compiler,
     obj: &'a Object,
+    sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
 ) -> CompileResult<'a> {
     debug!("Compiling Object: {:?}", obj);
     let val = match obj {
         Object::Number(n) => compile_number(compiler, n),
-        Object::List(list) => compile_list(compiler, list),
+        Object::List(list) => {
+            compile_list(compiler, list, sym_tables)
+        }
         Object::Symbol(s) => {
-            let val = process_symbol(compiler, s)?;
+            let val =
+                process_symbol(compiler, s, sym_tables)?;
             match val {
                 AnyValueEnum::FloatValue(v) => {
                     Ok(v.as_any_value_enum())
@@ -182,7 +191,7 @@ fn compile_obj<'a>(
                     Ok(v.as_any_value_enum())
                 }
                 _ => Err(format!(
-                    "Cannot compile object: {:?}",
+                    "Cannot compile object for symbol: {:?}",
                     obj
                 )),
             }
