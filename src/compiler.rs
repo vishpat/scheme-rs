@@ -336,7 +336,7 @@ mod tests {
         let program = "
         (define x (quote (10 2 3)))
         (define (first list:l)
-                  (car l))
+                  (car list:l))
 
         (first x)
         ";
@@ -349,9 +349,9 @@ mod tests {
         let program = "
         (define data (quote (1 2 3 4 5)))
         (define (sum list:l)
-            (if (null? l)
+            (if (null? list:l)
                 0
-                (+ (car l) (sum (cdr l)))))
+                (+ (car list:l) (sum (cdr list:l)))))
         (sum data)
         ";
         let ret = compile_and_run_program(program).unwrap();

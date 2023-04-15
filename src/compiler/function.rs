@@ -142,10 +142,8 @@ pub fn compile_function_definition<'a>(
                 &name,
             );
             compiler.builder.build_store(ptr, p);
-            let param_name =
-                name.strip_prefix(LIST_PREFIX).unwrap();
             sym_tables.borrow_mut().add_symbol_value(
-                param_name,
+                name.as_str(),
                 Pointer {
                     ptr,
                     data_type: DataType::List,
