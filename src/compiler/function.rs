@@ -8,11 +8,13 @@ use crate::object::*;
 use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
-use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::FloatValue;
+use inkwell::AddressSpace;
 use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+const LIST_PREFIX: &str = "list:";
 
 pub fn compile_function_prototype<'a>(
     compiler: &'a Compiler,
@@ -29,14 +31,40 @@ pub fn compile_function_prototype<'a>(
     };
 
     let func_params = func_proto[1..].to_vec();
+    debug!(
+        "Compiling function prototype with parameters: {:?}",
+        func_params);
 
-    let func_type = compiler.float_type.fn_type(
-        &vec![
-            compiler.float_type.into();
-            func_params.len()
-        ],
-        false,
-    );
+    let mut func_param_types = vec![];
+    for param in func_params.iter() {
+        match param {
+            Object::Symbol(s) => {
+                if s.starts_with(LIST_PREFIX) {
+                    func_param_types.push(
+                        compiler
+                            .node_type
+                            .ptr_type(
+                                AddressSpace::default(),
+                            )
+                            .into(),
+                    );
+                } else {
+                    func_param_types
+                        .push(compiler.float_type.into());
+                }
+            }
+            _ => {
+                return Err(format!(
+                    "Expected symbol, found: {:?}",
+                    param
+                ))
+            }
+        }
+    }
+
+    let func_type = compiler
+        .float_type
+        .fn_type(func_param_types.as_slice(), false);
     let func = compiler
         .module
         .add_function(func_name, func_type, None);
@@ -78,6 +106,7 @@ pub fn compile_function_definition<'a>(
     for p in
         func_proto.into_function_value().get_param_iter()
     {
+        debug!("Processing function parameter {}", p);
         if p.is_float_value() {
             let param_float = p.into_float_value();
             let name = param_float
@@ -98,6 +127,35 @@ pub fn compile_function_definition<'a>(
                     data_type: DataType::Number,
                 },
             );
+        } else if p.is_pointer_value() {
+            let param_ptr = p.into_pointer_value();
+            let name = param_ptr
+                .get_name()
+                .to_str()
+                .ok()
+                .map(|s| s.to_string())
+                .unwrap();
+            let ptr = compiler.builder.build_alloca(
+                compiler
+                    .node_type
+                    .ptr_type(AddressSpace::default()),
+                &name,
+            );
+            compiler.builder.build_store(ptr, p);
+            let param_name =
+                name.strip_prefix(LIST_PREFIX).unwrap();
+            sym_tables.borrow_mut().add_symbol_value(
+                param_name,
+                Pointer {
+                    ptr,
+                    data_type: DataType::List,
+                },
+            );
+        } else {
+            return Err(format!(
+                "Expected float or pointer, found: {:?}",
+                p
+            ));
         }
     }
 
@@ -148,19 +206,32 @@ pub fn compile_function_call<'a>(
             panic!("Function {} not found", func_name)
         });
 
+    debug!("Processing function call {}", func_name);
+
     let compiled_args = list[1..]
         .iter()
         .map(|a| compile_obj(compiler, a, sym_tables))
         .collect::<Result<Vec<AnyValueEnum>, String>>()?;
-    let compiled_args: Vec<BasicMetadataValueEnum> =
-        compiled_args
-            .into_iter()
-            .map(|val| val.into_float_value().into())
-            .collect();
+
+    let mut compiled_args2 = vec![];
+    for arg in compiled_args.iter() {
+        if arg.is_float_value() {
+            compiled_args2
+                .push(arg.into_float_value().into());
+        } else if arg.is_pointer_value() {
+            compiled_args2
+                .push(arg.into_pointer_value().into());
+        } else {
+            return Err(format!(
+                "Expected float or pointer, found: {:?}",
+                arg
+            ));
+        }
+    }
 
     let func_call = compiler.builder.build_call(
         func,
-        compiled_args.as_slice(),
+        compiled_args2.as_slice(),
         "calltmp",
     );
 

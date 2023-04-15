@@ -143,7 +143,7 @@ pub fn compile_and_run_program(
     }
 
     compiler.fpm.run_on(&main_func);
-    //compiler.module.print_to_stderr();
+    compiler.module.print_to_stderr();
     compiler
         .module
         .print_to_file(Path::new("main.ll"))
@@ -329,5 +329,18 @@ mod tests {
         ";
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 3);
+    }
+
+    #[test]
+    fn test_list_parameter() {
+        let program = "
+        (define x (quote (10 2 3)))
+        (define (first list:l)
+                  (car l))
+
+        (first x)
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 10);
     }
 }
