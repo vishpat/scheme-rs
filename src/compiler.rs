@@ -343,4 +343,18 @@ mod tests {
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 10);
     }
+
+    #[test]
+    fn test_recursive_sum() {
+        let program = "
+        (define data (quote (1 2 3 4 5)))
+        (define (sum list:l)
+            (if (null? l)
+                0
+                (+ (car l) (sum (cdr l)))))
+        (sum data)
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 15);
+    }
 }
