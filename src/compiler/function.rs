@@ -14,7 +14,7 @@ use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-const LIST_PREFIX: &str = "list:";
+const LIST_PREFIX: &str = "l_";
 
 pub fn compile_function_prototype<'a>(
     compiler: &'a Compiler,
@@ -206,18 +206,18 @@ pub fn compile_function_call<'a>(
 
     debug!("Processing function call {}", func_name);
 
-    let compiled_args = list[1..]
+    let processed_args = list[1..]
         .iter()
         .map(|a| compile_obj(compiler, a, sym_tables))
         .collect::<Result<Vec<AnyValueEnum>, String>>()?;
 
-    let mut compiled_args2 = vec![];
-    for arg in compiled_args.iter() {
+    let mut compiled_args = vec![];
+    for arg in processed_args.iter() {
         if arg.is_float_value() {
-            compiled_args2
+            compiled_args
                 .push(arg.into_float_value().into());
         } else if arg.is_pointer_value() {
-            compiled_args2
+            compiled_args
                 .push(arg.into_pointer_value().into());
         } else {
             return Err(format!(
@@ -229,7 +229,7 @@ pub fn compile_function_call<'a>(
 
     let func_call = compiler.builder.build_call(
         func,
-        compiled_args2.as_slice(),
+        compiled_args.as_slice(),
         "calltmp",
     );
 

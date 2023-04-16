@@ -335,8 +335,8 @@ mod tests {
     fn test_list_parameter() {
         let program = "
         (define x (quote (10 2 3)))
-        (define (first list:l)
-                  (car list:l))
+        (define (first l_list)
+                  (car l_list))
 
         (first x)
         ";
@@ -348,10 +348,10 @@ mod tests {
     fn test_recursive_sum() {
         let program = "
         (define data (quote (1 2 3 4 5)))
-        (define (sum list:l)
-            (if (null? list:l)
+        (define (sum l_list)
+            (if (null? l_list)
                 0
-                (+ (car list:l) (sum (cdr list:l)))))
+                (+ (car l_list) (sum (cdr l_list)))))
         (sum data)
         ";
         let ret = compile_and_run_program(program).unwrap();
