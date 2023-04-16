@@ -9,6 +9,7 @@ use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum::{
     FloatValue, PointerValue,
 };
+use inkwell::AddressSpace;
 use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -47,21 +48,12 @@ pub fn compile_define_obj<'a>(
 
     match val {
         FloatValue(f) => {
-            let ptr = compiler
-                .builder
-                .build_alloca(compiler.float_type, name);
-            compiler.builder.build_store(ptr, f);
-            debug!(
-                "Adding number symbol: {} {:?}",
-                name, ptr
-            );
-            sym_tables.borrow_mut().add_symbol_value(
+            let global_val = compiler.module.add_global(
+                compiler.float_type,
+                Some(AddressSpace::default()),
                 name,
-                Pointer {
-                    ptr,
-                    data_type: DataType::Number,
-                },
             );
+            global_val.set_initializer(&f);
         }
         PointerValue(p) => {
             let ptr = compiler
