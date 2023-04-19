@@ -50,13 +50,11 @@ pub fn compile_function_prototype<'a>(
                             )
                             .into(),
                     );
-                }
-                if s.starts_with(FUNC_1_PREFIX) {
+                } else if s.starts_with(FUNC_1_PREFIX) {
                     func_param_types.push(
                         compiler.func1_obj_type.into(),
                     );
-                }
-                if s.starts_with(FUNC_2_PREFIX) {
+                } else if s.starts_with(FUNC_2_PREFIX) {
                     func_param_types.push(
                         compiler.func2_obj_type.into(),
                     );
@@ -74,6 +72,7 @@ pub fn compile_function_prototype<'a>(
         }
     }
 
+    debug!("Function parameter types: {:?}", func_param_types);
     let func_type = compiler
         .float_type
         .fn_type(func_param_types.as_slice(), false);
@@ -81,6 +80,7 @@ pub fn compile_function_prototype<'a>(
         .module
         .add_function(func_name, func_type, None);
 
+    debug!("Function parameters: {:?}", func_params);
     func.get_param_iter().enumerate().for_each(|(i, p)| {
         p.set_name(&func_params[i].to_string());
     });
