@@ -34,7 +34,8 @@ pub struct Compiler<'ctx> {
     pub int_type: inkwell::types::IntType<'ctx>,
     pub float_type: inkwell::types::FloatType<'ctx>,
     pub node_type: inkwell::types::StructType<'ctx>,
-    pub func_obj_type: inkwell::types::StructType<'ctx>,
+    pub func1_obj_type: inkwell::types::StructType<'ctx>,
+    pub func2_obj_type: inkwell::types::StructType<'ctx>,
     pub node_null: inkwell::values::PointerValue<'ctx>,
     pub bool_type: inkwell::types::IntType<'ctx>,
     pub main_func: FunctionValue<'ctx>,
@@ -60,13 +61,30 @@ impl<'ctx> Compiler<'ctx> {
             node_type.ptr_type(AddressSpace::default()),
             "null",
         );
-        let func_obj_type =
-            context.opaque_struct_type("func_obj");
-        func_obj_type.set_body(
+        let func1_obj_type =
+            context.opaque_struct_type("func1_obj");
+        func1_obj_type.set_body(
             &[context
                 .f64_type()
                 .fn_type(
                     &[context.f64_type().into()],
+                    false,
+                )
+                .ptr_type(AddressSpace::default())
+                .into()],
+            false,
+        );
+
+        let func2_obj_type =
+            context.opaque_struct_type("func2_obj");
+        func2_obj_type.set_body(
+            &[context
+                .f64_type()
+                .fn_type(
+                    &[
+                        context.f64_type().into(),
+                        context.f64_type().into(),
+                    ],
                     false,
                 )
                 .ptr_type(AddressSpace::default())
@@ -90,7 +108,8 @@ impl<'ctx> Compiler<'ctx> {
             float_type: context.f64_type(),
             node_type,
             node_null,
-            func_obj_type,
+            func1_obj_type,
+            func2_obj_type,
             bool_type,
             main_func,
         }

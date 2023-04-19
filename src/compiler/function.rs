@@ -15,6 +15,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 const LIST_PREFIX: &str = "l_";
+const FUNC_1_PREFIX: &str = "f1_";
+const FUNC_2_PREFIX: &str = "f2_";
 
 pub fn compile_function_prototype<'a>(
     compiler: &'a Compiler,
@@ -47,6 +49,16 @@ pub fn compile_function_prototype<'a>(
                                 AddressSpace::default(),
                             )
                             .into(),
+                    );
+                }
+                if s.starts_with(FUNC_1_PREFIX) {
+                    func_param_types.push(
+                        compiler.func1_obj_type.into(),
+                    );
+                }
+                if s.starts_with(FUNC_2_PREFIX) {
+                    func_param_types.push(
+                        compiler.func2_obj_type.into(),
                     );
                 } else {
                     func_param_types
@@ -141,6 +153,49 @@ pub fn compile_function_definition<'a>(
                     .ptr_type(AddressSpace::default()),
                 &name,
             );
+            compiler.builder.build_store(ptr, p);
+            sym_tables.borrow_mut().add_symbol_value(
+                name.as_str(),
+                Pointer {
+                    ptr,
+                    data_type: DataType::List,
+                },
+            );
+        } else if p.is_struct_value() {
+            let func_obj = p.into_struct_value();
+            let name = func_obj
+                .get_name()
+                .to_str()
+                .ok()
+                .map(|s| s.to_string())
+                .unwrap();
+
+            debug!("Processing function object {}", name);
+
+            let ptr = match name.as_str() {
+                "func1_obj" => {
+                    compiler.builder.build_alloca(
+                        compiler.func1_obj_type.ptr_type(
+                            AddressSpace::default(),
+                        ),
+                        &name,
+                    )
+                }
+                "func2_obj" => {
+                    compiler.builder.build_alloca(
+                        compiler.func2_obj_type.ptr_type(
+                            AddressSpace::default(),
+                        ),
+                        &name,
+                    )
+                }
+                _ => {
+                    return Err(format!(
+                        "Expected func1_obj or func2_obj, found: {}",
+                        name
+                    ))
+                }
+            };
             compiler.builder.build_store(ptr, p);
             sym_tables.borrow_mut().add_symbol_value(
                 name.as_str(),
