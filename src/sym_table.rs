@@ -6,6 +6,7 @@ use log::debug;
 pub enum DataType {
     Number,
     List,
+    Struct,
 }
 
 #[derive(Debug, Clone)]

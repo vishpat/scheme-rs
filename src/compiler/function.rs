@@ -52,11 +52,21 @@ pub fn compile_function_prototype<'a>(
                     );
                 } else if s.starts_with(FUNC_1_PREFIX) {
                     func_param_types.push(
-                        compiler.func1_obj_type.into(),
+                        compiler
+                            .func1_obj_type
+                            .ptr_type(
+                                AddressSpace::default(),
+                            )
+                            .into(),
                     );
                 } else if s.starts_with(FUNC_2_PREFIX) {
                     func_param_types.push(
-                        compiler.func2_obj_type.into(),
+                        compiler
+                            .func2_obj_type
+                            .ptr_type(
+                                AddressSpace::default(),
+                            )
+                            .into(),
                     );
                 } else {
                     func_param_types
@@ -72,7 +82,10 @@ pub fn compile_function_prototype<'a>(
         }
     }
 
-    debug!("Function parameter types: {:?}", func_param_types);
+    debug!(
+        "Function parameter types: {:?}",
+        func_param_types
+    );
     let func_type = compiler
         .float_type
         .fn_type(func_param_types.as_slice(), false);
@@ -153,56 +166,25 @@ pub fn compile_function_definition<'a>(
                     .ptr_type(AddressSpace::default()),
                 &name,
             );
+
+            let ty;
+            if name.starts_with(LIST_PREFIX) {
+                ty = DataType::List;
+            } else if name.starts_with(FUNC_1_PREFIX) {
+                ty = DataType::Struct;
+            } else if name.starts_with(FUNC_2_PREFIX) {
+                ty = DataType::Struct;
+            } else {
+                return Err(format!(
+                    "Unknown function parameter type: {}",
+                    name
+                ));
+            }
+
             compiler.builder.build_store(ptr, p);
             sym_tables.borrow_mut().add_symbol_value(
                 name.as_str(),
-                Pointer {
-                    ptr,
-                    data_type: DataType::List,
-                },
-            );
-        } else if p.is_struct_value() {
-            let func_obj = p.into_struct_value();
-            let name = func_obj
-                .get_name()
-                .to_str()
-                .ok()
-                .map(|s| s.to_string())
-                .unwrap();
-
-            debug!("Processing function object {}", name);
-
-            let ptr = match name.as_str() {
-                "func1_obj" => {
-                    compiler.builder.build_alloca(
-                        compiler.func1_obj_type.ptr_type(
-                            AddressSpace::default(),
-                        ),
-                        &name,
-                    )
-                }
-                "func2_obj" => {
-                    compiler.builder.build_alloca(
-                        compiler.func2_obj_type.ptr_type(
-                            AddressSpace::default(),
-                        ),
-                        &name,
-                    )
-                }
-                _ => {
-                    return Err(format!(
-                        "Expected func1_obj or func2_obj, found: {}",
-                        name
-                    ))
-                }
-            };
-            compiler.builder.build_store(ptr, p);
-            sym_tables.borrow_mut().add_symbol_value(
-                name.as_str(),
-                Pointer {
-                    ptr,
-                    data_type: DataType::List,
-                },
+                Pointer { ptr, data_type: ty },
             );
         } else {
             return Err(format!(
@@ -252,12 +234,25 @@ pub fn compile_function_call<'a>(
         _ => return Err("Expected symbol".to_string()),
     };
 
-    let func = compiler
-        .module
-        .get_function(func_name)
-        .unwrap_or_else(|| {
-            panic!("Function {} not found", func_name)
-        });
+    let mut func = compiler.module.get_function(func_name);
+
+    if func.is_none() {
+        let func_ptr = sym_tables
+            .borrow_mut()
+            .get_symbol_value(func_name);
+        if func_ptr.is_none() {
+            return Err(format!(
+                "Function {} not found",
+                func_name
+            ));
+        } else {
+            debug!(
+                "Found function pointer {} {:?}",
+                func_name,
+                func_ptr.unwrap()
+            );
+        }
+    }
 
     debug!("Processing function call {}", func_name);
 
@@ -283,7 +278,7 @@ pub fn compile_function_call<'a>(
     }
 
     let func_call = compiler.builder.build_call(
-        func,
+        func.unwrap(),
         compiled_args.as_slice(),
         "calltmp",
     );
