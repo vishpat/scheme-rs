@@ -34,9 +34,11 @@ pub struct Compiler<'ctx> {
     pub int_type: inkwell::types::IntType<'ctx>,
     pub float_type: inkwell::types::FloatType<'ctx>,
     pub node_type: inkwell::types::StructType<'ctx>,
-    pub func1_obj_type: inkwell::types::StructType<'ctx>,
-    pub func2_obj_type: inkwell::types::StructType<'ctx>,
     pub node_null: inkwell::values::PointerValue<'ctx>,
+    pub func1_obj_type: inkwell::types::StructType<'ctx>,
+    pub func1_ptr_type: inkwell::types::BasicTypeEnum<'ctx>,
+    pub func2_obj_type: inkwell::types::StructType<'ctx>,
+    pub func2_ptr_type: inkwell::types::BasicTypeEnum<'ctx>,
     pub bool_type: inkwell::types::IntType<'ctx>,
     pub main_func: FunctionValue<'ctx>,
 }
@@ -63,34 +65,27 @@ impl<'ctx> Compiler<'ctx> {
         );
         let func1_obj_type =
             context.opaque_struct_type("func1_obj");
-        func1_obj_type.set_body(
-            &[context
-                .f64_type()
-                .fn_type(
-                    &[context.f64_type().into()],
-                    false,
-                )
-                .ptr_type(AddressSpace::default())
-                .into()],
-            false,
-        );
+        let func1_ptr_type = context
+            .f64_type()
+            .fn_type(&[context.f64_type().into()], false)
+            .ptr_type(AddressSpace::default())
+            .into();
+        func1_obj_type.set_body(&[func1_ptr_type], false);
 
         let func2_obj_type =
             context.opaque_struct_type("func2_obj");
-        func2_obj_type.set_body(
-            &[context
-                .f64_type()
-                .fn_type(
-                    &[
-                        context.f64_type().into(),
-                        context.f64_type().into(),
-                    ],
-                    false,
-                )
-                .ptr_type(AddressSpace::default())
-                .into()],
-            false,
-        );
+        let func2_ptr_type = context
+            .f64_type()
+            .fn_type(
+                &[
+                    context.f64_type().into(),
+                    context.f64_type().into(),
+                ],
+                false,
+            )
+            .ptr_type(AddressSpace::default())
+            .into();
+        func2_obj_type.set_body(&[func2_ptr_type], false);
 
         let bool_type = context.bool_type();
         let main_func = module.add_function(
@@ -109,7 +104,9 @@ impl<'ctx> Compiler<'ctx> {
             node_type,
             node_null,
             func1_obj_type,
+            func1_ptr_type,
             func2_obj_type,
+            func2_ptr_type,
             bool_type,
             main_func,
         }

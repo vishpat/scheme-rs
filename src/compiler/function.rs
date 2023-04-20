@@ -160,20 +160,33 @@ pub fn compile_function_definition<'a>(
                 .ok()
                 .map(|s| s.to_string())
                 .unwrap();
-            let ptr = compiler.builder.build_alloca(
-                compiler
-                    .node_type
-                    .ptr_type(AddressSpace::default()),
-                &name,
-            );
 
             let ty;
+            let ptr;
             if name.starts_with(LIST_PREFIX) {
                 ty = DataType::List;
+                ptr = compiler.builder.build_alloca(
+                    compiler
+                        .node_type
+                        .ptr_type(AddressSpace::default()),
+                    &name,
+                );
             } else if name.starts_with(FUNC_1_PREFIX) {
-                ty = DataType::Struct;
+                ty = DataType::FuncObj1;
+                ptr = compiler.builder.build_alloca(
+                    compiler
+                        .func1_obj_type
+                        .ptr_type(AddressSpace::default()),
+                    &name,
+                );
             } else if name.starts_with(FUNC_2_PREFIX) {
-                ty = DataType::Struct;
+                ty = DataType::FuncObj2;
+                ptr = compiler.builder.build_alloca(
+                    compiler
+                        .func2_obj_type
+                        .ptr_type(AddressSpace::default()),
+                    &name,
+                );
             } else {
                 return Err(format!(
                     "Unknown function parameter type: {}",
@@ -234,27 +247,95 @@ pub fn compile_function_call<'a>(
         _ => return Err("Expected symbol".to_string()),
     };
 
-    let mut func = compiler.module.get_function(func_name);
+    debug!("Compiling function call: {:?}", list);
+
+    let func = compiler.module.get_function(func_name);
 
     if func.is_none() {
+        debug!("Function {} not found, so checking for function object", func_name);
         let func_ptr = sym_tables
             .borrow_mut()
             .get_symbol_value(func_name);
+
         if func_ptr.is_none() {
             return Err(format!(
                 "Function {} not found",
                 func_name
             ));
         } else {
-            debug!(
-                "Found function pointer {} {:?}",
-                func_name,
-                func_ptr.unwrap()
-            );
+            let ptr = func_ptr.unwrap();
+            if ptr.data_type != DataType::FuncObj1
+                && ptr.data_type != DataType::FuncObj2
+            {
+                return Err(format!(
+                    "Expected function object, found: {:?}",
+                    ptr.data_type
+                ));
+            }
+
+            let val = match ptr.data_type {
+                DataType::FuncObj1 => {
+                    let val = compiler.builder.build_load(
+                        compiler.func1_obj_type.ptr_type(
+                            AddressSpace::default(),
+                        ),
+                        ptr.ptr,
+                        "loadtmp",
+                    );
+                    let ptr = compiler
+                        .builder
+                        .build_struct_gep(
+                            compiler.func1_obj_type,
+                            val.into_pointer_value(),
+                            0,
+                            "geptmp",
+                        )
+                        .map_err(|_e| {
+                            "Unable to load node for func1_obj"
+                                .to_string()
+                        })?;
+                    compiler.builder.build_load(
+                        compiler.func1_ptr_type,
+                        ptr,
+                        "loadtmp",
+                    )
+                }
+                DataType::FuncObj2 => {
+                    let val = compiler.builder.build_load(
+                        compiler.func2_obj_type.ptr_type(
+                            AddressSpace::default(),
+                        ),
+                        ptr.ptr,
+                        "loadtmp",
+                    );
+                    let ptr = compiler
+                        .builder
+                        .build_struct_gep(
+                            compiler.func2_obj_type,
+                            val.into_pointer_value(),
+                            0,
+                            "geptmp",
+                        )
+                        .map_err(|_e| {
+                            "Unable to load node for func2_obj"
+                                .to_string()
+                        })?;
+                    compiler.builder.build_load(
+                        compiler.func2_ptr_type,
+                        ptr,
+                        "loadtmp",
+                    )
+                }
+                _ => {
+                    return Err(
+                        "Should not happen".to_string()
+                    )
+                }
+            };
+
+            debug!("Processing function call {} {:?}", val.get_type(), ptr);
         }
     }
-
-    debug!("Processing function call {}", func_name);
 
     let processed_args = list[1..]
         .iter()

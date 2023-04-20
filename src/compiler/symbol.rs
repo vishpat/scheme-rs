@@ -38,36 +38,40 @@ pub fn process_symbol<'ctx>(
 
     debug!("Processing symbol {} val: {:?}", sym, val);
     let x = match val {
-        Some(p) => {
-            if p.data_type == DataType::Number {
-                debug!(
-                    "Loading Number symbol: {} {:?}",
-                    sym, p
-                );
+        Some(p) => match p.data_type {
+            DataType::Number => {
                 compiler.builder.build_load(
                     compiler.float_type,
                     p.ptr,
                     sym,
                 )
-            } else if p.data_type == DataType::List {
-                debug!(
-                    "Loading List symbol: {} {:?}",
-                    sym, p
-                );
+            }
+            DataType::List => compiler.builder.build_load(
+                compiler
+                    .node_type
+                    .ptr_type(AddressSpace::default()),
+                p.ptr,
+                sym,
+            ),
+            DataType::FuncObj1 => {
                 compiler.builder.build_load(
                     compiler
-                        .node_type
+                        .func1_obj_type
                         .ptr_type(AddressSpace::default()),
                     p.ptr,
                     sym,
                 )
-            } else {
-                return Err(format!(
-                    "Cannot load symbol: {}",
-                    sym
-                ));
             }
-        }
+            DataType::FuncObj2 => {
+                compiler.builder.build_load(
+                    compiler
+                        .func2_obj_type
+                        .ptr_type(AddressSpace::default()),
+                    p.ptr,
+                    sym,
+                )
+            }
+        },
         None => {
             return Err(format!(
                 "Undefined symbol: {}",
