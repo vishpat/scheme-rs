@@ -221,6 +221,9 @@ fn compile_obj<'a>(
                 AnyValueEnum::PointerValue(v) => {
                     Ok(v.as_any_value_enum())
                 }
+                AnyValueEnum::FunctionValue(v) => {
+                    Ok(v.as_any_value_enum())
+                }
                 _ => Err(format!(
                     "Cannot compile object for symbol: {:?}",
                     obj
@@ -389,7 +392,6 @@ mod tests {
         assert_eq!(ret, 15);
     }
 
-    #[test]
     fn test_recursive_sum_2() {
         let program = "
         (define (add x y) 
@@ -401,7 +403,7 @@ mod tests {
                     (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
 
         (define (sum l_lst) 
-            (foldr 0 l_lst))
+            (foldr add 0 l_lst))
 
         (sum (quote (1 2 3 4))) 
         ";

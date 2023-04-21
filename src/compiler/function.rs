@@ -10,7 +10,7 @@ use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::FloatValue;
 use inkwell::AddressSpace;
-use log::debug;
+use log::{debug, warn};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -201,7 +201,7 @@ pub fn compile_function_definition<'a>(
             );
         } else {
             return Err(format!(
-                "Expected float or pointer, found: {:?}",
+                "Function Definition: Expected float or pointer, found: {:?}",
                 p
             ));
         }
@@ -259,9 +259,16 @@ pub fn compile_function_call<'a>(
         } else if arg.is_pointer_value() {
             compiled_args
                 .push(arg.into_pointer_value().into());
+        } else if arg.is_function_value() {
+            compiled_args.push(
+                arg.into_function_value()
+                    .as_global_value()
+                    .as_pointer_value()
+                    .into(),
+            );
         } else {
             return Err(format!(
-                "Expected float or pointer, found: {:?}",
+                "Function Call: Expected float or pointer, found: {:?}",
                 arg
             ));
         }
@@ -327,7 +334,7 @@ pub fn compile_function_call<'a>(
                     fn_type,
                     fn_ptr.into_pointer_value(),
                     compiled_args.as_slice(),
-                    "calltmp",
+                    "call_indirect_func1",
                 )
             }
             DataType::FuncObj2 => {
@@ -366,7 +373,7 @@ pub fn compile_function_call<'a>(
                     fn_type,
                     fn_ptr.into_pointer_value(),
                     compiled_args.as_slice(),
-                    "calltmp",
+                    "call_indirect_func2",
                 )
             }
             _ => {
@@ -385,7 +392,7 @@ pub fn compile_function_call<'a>(
         let func_call = compiler.builder.build_call(
             func.unwrap(),
             compiled_args.as_slice(),
-            "calltmp",
+            "call_direct",
         );
 
         Ok(func_call
