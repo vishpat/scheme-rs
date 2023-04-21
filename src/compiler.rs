@@ -35,6 +35,10 @@ pub struct Compiler<'ctx> {
     pub float_type: inkwell::types::FloatType<'ctx>,
     pub node_type: inkwell::types::StructType<'ctx>,
     pub node_null: inkwell::values::PointerValue<'ctx>,
+    pub func1_obj_type: inkwell::types::StructType<'ctx>,
+    pub func1_ptr_type: inkwell::types::BasicTypeEnum<'ctx>,
+    pub func2_obj_type: inkwell::types::StructType<'ctx>,
+    pub func2_ptr_type: inkwell::types::BasicTypeEnum<'ctx>,
     pub bool_type: inkwell::types::IntType<'ctx>,
     pub main_func: FunctionValue<'ctx>,
 }
@@ -59,6 +63,29 @@ impl<'ctx> Compiler<'ctx> {
             node_type.ptr_type(AddressSpace::default()),
             "null",
         );
+        let func1_obj_type =
+            context.opaque_struct_type("func1_obj");
+        let func1_ptr_type = context
+            .f64_type()
+            .fn_type(&[context.f64_type().into()], false)
+            .ptr_type(AddressSpace::default())
+            .into();
+        func1_obj_type.set_body(&[func1_ptr_type], false);
+
+        let func2_obj_type =
+            context.opaque_struct_type("func2_obj");
+        let func2_ptr_type = context
+            .f64_type()
+            .fn_type(
+                &[
+                    context.f64_type().into(),
+                    context.f64_type().into(),
+                ],
+                false,
+            )
+            .ptr_type(AddressSpace::default())
+            .into();
+        func2_obj_type.set_body(&[func2_ptr_type], false);
 
         let bool_type = context.bool_type();
         let main_func = module.add_function(
@@ -76,6 +103,10 @@ impl<'ctx> Compiler<'ctx> {
             float_type: context.f64_type(),
             node_type,
             node_null,
+            func1_obj_type,
+            func1_ptr_type,
+            func2_obj_type,
+            func2_ptr_type,
             bool_type,
             main_func,
         }
@@ -188,6 +219,9 @@ fn compile_obj<'a>(
                     Ok(v.as_any_value_enum())
                 }
                 AnyValueEnum::PointerValue(v) => {
+                    Ok(v.as_any_value_enum())
+                }
+                AnyValueEnum::FunctionValue(v) => {
                     Ok(v.as_any_value_enum())
                 }
                 _ => Err(format!(
@@ -353,6 +387,26 @@ mod tests {
                 0
                 (+ (car l_list) (sum (cdr l_list)))))
         (sum data)
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 15);
+    }
+
+    #[test]
+    fn test_recursive_sum_2() {
+        let program = "
+        (define (add x y) 
+            (+ x y))
+
+        (define (foldr f2_func end l_lst)
+                (if (null? l_lst)
+                    end
+                    (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+
+        (define (sum l_lst) 
+            (foldr add 0 l_lst))
+
+        (sum (quote (1 2 3 4 5))) 
         ";
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 15);

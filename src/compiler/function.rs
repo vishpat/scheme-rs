@@ -15,6 +15,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 const LIST_PREFIX: &str = "l_";
+const FUNC_1_PREFIX: &str = "f1_";
+const FUNC_2_PREFIX: &str = "f2_";
 
 pub fn compile_function_prototype<'a>(
     compiler: &'a Compiler,
@@ -48,6 +50,24 @@ pub fn compile_function_prototype<'a>(
                             )
                             .into(),
                     );
+                } else if s.starts_with(FUNC_1_PREFIX) {
+                    func_param_types.push(
+                        compiler
+                            .func1_obj_type
+                            .ptr_type(
+                                AddressSpace::default(),
+                            )
+                            .into(),
+                    );
+                } else if s.starts_with(FUNC_2_PREFIX) {
+                    func_param_types.push(
+                        compiler
+                            .func2_obj_type
+                            .ptr_type(
+                                AddressSpace::default(),
+                            )
+                            .into(),
+                    );
                 } else {
                     func_param_types
                         .push(compiler.float_type.into());
@@ -62,6 +82,10 @@ pub fn compile_function_prototype<'a>(
         }
     }
 
+    debug!(
+        "Function parameter types: {:?}",
+        func_param_types
+    );
     let func_type = compiler
         .float_type
         .fn_type(func_param_types.as_slice(), false);
@@ -69,6 +93,7 @@ pub fn compile_function_prototype<'a>(
         .module
         .add_function(func_name, func_type, None);
 
+    debug!("Function parameters: {:?}", func_params);
     func.get_param_iter().enumerate().for_each(|(i, p)| {
         p.set_name(&func_params[i].to_string());
     });
@@ -135,23 +160,48 @@ pub fn compile_function_definition<'a>(
                 .ok()
                 .map(|s| s.to_string())
                 .unwrap();
-            let ptr = compiler.builder.build_alloca(
-                compiler
-                    .node_type
-                    .ptr_type(AddressSpace::default()),
-                &name,
-            );
+
+            let ty;
+            let ptr;
+            if name.starts_with(LIST_PREFIX) {
+                ty = DataType::List;
+                ptr = compiler.builder.build_alloca(
+                    compiler
+                        .node_type
+                        .ptr_type(AddressSpace::default()),
+                    &name,
+                );
+            } else if name.starts_with(FUNC_1_PREFIX) {
+                ty = DataType::FuncObj1;
+                ptr = compiler.builder.build_alloca(
+                    compiler
+                        .func1_obj_type
+                        .ptr_type(AddressSpace::default()),
+                    &name,
+                );
+            } else if name.starts_with(FUNC_2_PREFIX) {
+                ty = DataType::FuncObj2;
+                ptr = compiler.builder.build_alloca(
+                    compiler
+                        .func2_obj_type
+                        .ptr_type(AddressSpace::default()),
+                    &name,
+                );
+            } else {
+                return Err(format!(
+                    "Unknown function parameter type: {}",
+                    name
+                ));
+            }
+
             compiler.builder.build_store(ptr, p);
             sym_tables.borrow_mut().add_symbol_value(
                 name.as_str(),
-                Pointer {
-                    ptr,
-                    data_type: DataType::List,
-                },
+                Pointer { ptr, data_type: ty },
             );
         } else {
             return Err(format!(
-                "Expected float or pointer, found: {:?}",
+                "Function Definition: Expected float or pointer, found: {:?}",
                 p
             ));
         }
@@ -196,16 +246,6 @@ pub fn compile_function_call<'a>(
         Object::Symbol(s) => s,
         _ => return Err("Expected symbol".to_string()),
     };
-
-    let func = compiler
-        .module
-        .get_function(func_name)
-        .unwrap_or_else(|| {
-            panic!("Function {} not found", func_name)
-        });
-
-    debug!("Processing function call {}", func_name);
-
     let processed_args = list[1..]
         .iter()
         .map(|a| compile_obj(compiler, a, sym_tables))
@@ -219,24 +259,175 @@ pub fn compile_function_call<'a>(
         } else if arg.is_pointer_value() {
             compiled_args
                 .push(arg.into_pointer_value().into());
+        } else if arg.is_function_value() {
+            let fn_val = arg.into_function_value();
+            let arg_count = fn_val.count_params();
+            let ty = if arg_count == 1 {
+                compiler.func1_obj_type
+            } else {
+                compiler.func2_obj_type
+            };
+            match arg_count {
+                1 | 2 => {
+                    let func_obj_ptr = compiler
+                        .builder
+                        .build_alloca(ty, "func_obj_ptr");
+                    let func_ptr=
+                        compiler.builder.build_struct_gep(
+                            ty,
+                            func_obj_ptr,
+                            0,
+                            "func_obj_ptr",
+                        ).map_err(|_e| "Unable to build function pointer for function object".to_string())?;
+                    compiler.builder.build_store(
+                        func_ptr,
+                        fn_val
+                            .as_global_value()
+                            .as_pointer_value(),
+                    );
+                    compiled_args.push(func_obj_ptr.into());
+                }
+                _ => {
+                    return Err(format!(
+                        "Function Call: Expected function with 1 or 2 arguments, found: {}",
+                        arg_count
+                    ));
+                }
+            }
         } else {
             return Err(format!(
-                "Expected float or pointer, found: {:?}",
+                "Function Call: Expected float or pointer, found: {:?}",
                 arg
             ));
         }
     }
 
-    let func_call = compiler.builder.build_call(
-        func,
-        compiled_args.as_slice(),
-        "calltmp",
-    );
+    debug!("Compiling function call: {:?}", list);
 
-    Ok(func_call
-        .try_as_basic_value()
-        .left()
-        .map(|v| v.into_float_value())
-        .unwrap()
-        .as_any_value_enum())
+    let func = compiler.module.get_function(func_name);
+
+    if func.is_none() {
+        debug!("Function {} not found, so checking for function object", func_name);
+        let func_ptr = sym_tables
+            .borrow_mut()
+            .get_symbol_value(func_name);
+
+        if func_ptr.is_none() {
+            return Err(format!(
+                "Function {} not found",
+                func_name
+            ));
+        }
+        let ptr = func_ptr.unwrap();
+        if ptr.data_type != DataType::FuncObj1
+            && ptr.data_type != DataType::FuncObj2
+        {
+            return Err(format!(
+                "Expected function object, found: {:?}",
+                ptr.data_type
+            ));
+        }
+
+        let func_call = match ptr.data_type {
+            DataType::FuncObj1 => {
+                let val = compiler.builder.build_load(
+                    compiler
+                        .func1_obj_type
+                        .ptr_type(AddressSpace::default()),
+                    ptr.ptr,
+                    "loadtmp_func1_obj",
+                );
+                let ptr = compiler
+                    .builder
+                    .build_struct_gep(
+                        compiler.func1_obj_type,
+                        val.into_pointer_value(),
+                        0,
+                        "geptmp",
+                    )
+                    .map_err(|_e| {
+                        "Unable to load node for func1_obj"
+                            .to_string()
+                    })?;
+                let fn_ptr = compiler.builder.build_load(
+                    compiler.func1_ptr_type,
+                    ptr,
+                    "loadtmp_func1_ptr",
+                );
+                let fn_type = compiler.float_type.fn_type(
+                    &[compiler.float_type.into()],
+                    false,
+                );
+                compiler.builder.build_indirect_call(
+                    fn_type,
+                    fn_ptr.into_pointer_value(),
+                    compiled_args.as_slice(),
+                    "call_indirect_func1",
+                )
+            }
+            DataType::FuncObj2 => {
+                let val = compiler.builder.build_load(
+                    compiler
+                        .func2_obj_type
+                        .ptr_type(AddressSpace::default()),
+                    ptr.ptr,
+                    "loadtmp_func2_obj",
+                );
+                let ptr = compiler
+                    .builder
+                    .build_struct_gep(
+                        compiler.func2_obj_type,
+                        val.into_pointer_value(),
+                        0,
+                        "geptmp",
+                    )
+                    .map_err(|_e| {
+                        "Unable to load node for func2_obj"
+                            .to_string()
+                    })?;
+                let fn_ptr = compiler.builder.build_load(
+                    compiler.func2_ptr_type,
+                    ptr,
+                    "loadtmp_func2_ptr",
+                );
+                let fn_type = compiler.float_type.fn_type(
+                    &[
+                        compiler.float_type.into(),
+                        compiler.float_type.into(),
+                    ],
+                    false,
+                );
+                compiler.builder.build_indirect_call(
+                    fn_type,
+                    fn_ptr.into_pointer_value(),
+                    compiled_args.as_slice(),
+                    "call_indirect_func2",
+                )
+            }
+            _ => {
+                return Err("Should not happen".to_string())
+            }
+        };
+
+        debug!("Processing function call {:?}", func_call);
+        Ok(func_call
+            .try_as_basic_value()
+            .left()
+            .map(|v| v.into_float_value())
+            .unwrap()
+            .as_any_value_enum())
+    } else {
+        let func_call = compiler.builder.build_call(
+            func.unwrap(),
+            compiled_args.as_slice(),
+            "call_direct",
+        );
+
+        Ok(func_call
+            .try_as_basic_value()
+            .left()
+            .map(|v| v.into_float_value())
+            .unwrap()
+            .as_any_value_enum())
+    }
 }

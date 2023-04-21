@@ -6,6 +6,8 @@ use log::debug;
 pub enum DataType {
     Number,
     List,
+    FuncObj1,
+    FuncObj2,
 }
 
 #[derive(Debug, Clone)]
