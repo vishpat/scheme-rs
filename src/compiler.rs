@@ -388,4 +388,24 @@ mod tests {
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 15);
     }
+
+    #[test]
+    fn test_recursive_sum_2() {
+        let program = "
+        (define (add x y) 
+            (+ x y))
+
+        (define (foldr f2_func end l_lst)
+                (if (null? l_lst)
+                    end
+                    (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+
+        (define (sum l_lst) 
+            (foldr 0 l_lst))
+
+        (sum (quote (1 2 3 4))) 
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 15);
+    }
 }
