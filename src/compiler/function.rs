@@ -10,7 +10,7 @@ use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::FloatValue;
 use inkwell::AddressSpace;
-use log::{debug, warn};
+use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -260,12 +260,40 @@ pub fn compile_function_call<'a>(
             compiled_args
                 .push(arg.into_pointer_value().into());
         } else if arg.is_function_value() {
-            compiled_args.push(
-                arg.into_function_value()
-                    .as_global_value()
-                    .as_pointer_value()
-                    .into(),
-            );
+            let fn_val = arg.into_function_value();
+            let arg_count = fn_val.count_params();
+            let ty = if arg_count == 1 {
+                compiler.func1_obj_type
+            } else {
+                compiler.func2_obj_type
+            };
+            match arg_count {
+                1 | 2 => {
+                    let func_obj_ptr = compiler
+                        .builder
+                        .build_alloca(ty, "func_obj_ptr");
+                    let func_ptr=
+                        compiler.builder.build_struct_gep(
+                            ty,
+                            func_obj_ptr,
+                            0,
+                            "func_obj_ptr",
+                        ).map_err(|_e| "Unable to build function pointer for function object".to_string())?;
+                    compiler.builder.build_store(
+                        func_ptr,
+                        fn_val
+                            .as_global_value()
+                            .as_pointer_value(),
+                    );
+                    compiled_args.push(func_obj_ptr.into());
+                }
+                _ => {
+                    return Err(format!(
+                        "Function Call: Expected function with 1 or 2 arguments, found: {}",
+                        arg_count
+                    ));
+                }
+            }
         } else {
             return Err(format!(
                 "Function Call: Expected float or pointer, found: {:?}",
