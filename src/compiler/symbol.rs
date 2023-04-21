@@ -34,6 +34,12 @@ pub fn process_symbol<'ctx>(
         return Ok(g);
     }
 
+    let func_val = compiler.module.get_function(sym);
+    if let Some(f) = func_val {
+        debug!("Loading function symbol: {}", sym);
+        return Ok(f.as_any_value_enum());
+    }
+
     let val = sym_tables.borrow().get_symbol_value(sym);
 
     debug!("Processing symbol {} val: {:?}", sym, val);
