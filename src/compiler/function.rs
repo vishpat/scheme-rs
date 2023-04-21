@@ -246,97 +246,6 @@ pub fn compile_function_call<'a>(
         Object::Symbol(s) => s,
         _ => return Err("Expected symbol".to_string()),
     };
-
-    debug!("Compiling function call: {:?}", list);
-
-    let func = compiler.module.get_function(func_name);
-
-    if func.is_none() {
-        debug!("Function {} not found, so checking for function object", func_name);
-        let func_ptr = sym_tables
-            .borrow_mut()
-            .get_symbol_value(func_name);
-
-        if func_ptr.is_none() {
-            return Err(format!(
-                "Function {} not found",
-                func_name
-            ));
-        } else {
-            let ptr = func_ptr.unwrap();
-            if ptr.data_type != DataType::FuncObj1
-                && ptr.data_type != DataType::FuncObj2
-            {
-                return Err(format!(
-                    "Expected function object, found: {:?}",
-                    ptr.data_type
-                ));
-            }
-
-            let val = match ptr.data_type {
-                DataType::FuncObj1 => {
-                    let val = compiler.builder.build_load(
-                        compiler.func1_obj_type.ptr_type(
-                            AddressSpace::default(),
-                        ),
-                        ptr.ptr,
-                        "loadtmp",
-                    );
-                    let ptr = compiler
-                        .builder
-                        .build_struct_gep(
-                            compiler.func1_obj_type,
-                            val.into_pointer_value(),
-                            0,
-                            "geptmp",
-                        )
-                        .map_err(|_e| {
-                            "Unable to load node for func1_obj"
-                                .to_string()
-                        })?;
-                    compiler.builder.build_load(
-                        compiler.func1_ptr_type,
-                        ptr,
-                        "loadtmp",
-                    )
-                }
-                DataType::FuncObj2 => {
-                    let val = compiler.builder.build_load(
-                        compiler.func2_obj_type.ptr_type(
-                            AddressSpace::default(),
-                        ),
-                        ptr.ptr,
-                        "loadtmp",
-                    );
-                    let ptr = compiler
-                        .builder
-                        .build_struct_gep(
-                            compiler.func2_obj_type,
-                            val.into_pointer_value(),
-                            0,
-                            "geptmp",
-                        )
-                        .map_err(|_e| {
-                            "Unable to load node for func2_obj"
-                                .to_string()
-                        })?;
-                    compiler.builder.build_load(
-                        compiler.func2_ptr_type,
-                        ptr,
-                        "loadtmp",
-                    )
-                }
-                _ => {
-                    return Err(
-                        "Should not happen".to_string()
-                    )
-                }
-            };
-
-            debug!("Processing function call {} {:?}", val.get_type(), ptr);
-        }
-    }
-
     let processed_args = list[1..]
         .iter()
         .map(|a| compile_obj(compiler, a, sym_tables))
@@ -358,16 +267,132 @@ pub fn compile_function_call<'a>(
         }
     }
 
-    let func_call = compiler.builder.build_call(
-        func.unwrap(),
-        compiled_args.as_slice(),
-        "calltmp",
-    );
+    debug!("Compiling function call: {:?}", list);
 
-    Ok(func_call
-        .try_as_basic_value()
-        .left()
-        .map(|v| v.into_float_value())
-        .unwrap()
-        .as_any_value_enum())
+    let func = compiler.module.get_function(func_name);
+
+    if func.is_none() {
+        debug!("Function {} not found, so checking for function object", func_name);
+        let func_ptr = sym_tables
+            .borrow_mut()
+            .get_symbol_value(func_name);
+
+        if func_ptr.is_none() {
+            return Err(format!(
+                "Function {} not found",
+                func_name
+            ));
+        }
+        let ptr = func_ptr.unwrap();
+        if ptr.data_type != DataType::FuncObj1
+            && ptr.data_type != DataType::FuncObj2
+        {
+            return Err(format!(
+                "Expected function object, found: {:?}",
+                ptr.data_type
+            ));
+        }
+
+        let func_call = match ptr.data_type {
+            DataType::FuncObj1 => {
+                let val = compiler.builder.build_load(
+                    compiler
+                        .func1_obj_type
+                        .ptr_type(AddressSpace::default()),
+                    ptr.ptr,
+                    "loadtmp_func1_obj",
+                );
+                let ptr = compiler
+                    .builder
+                    .build_struct_gep(
+                        compiler.func1_obj_type,
+                        val.into_pointer_value(),
+                        0,
+                        "geptmp",
+                    )
+                    .map_err(|_e| {
+                        "Unable to load node for func1_obj"
+                            .to_string()
+                    })?;
+                let fn_ptr = compiler.builder.build_load(
+                    compiler.func1_ptr_type,
+                    ptr,
+                    "loadtmp_func1_ptr",
+                );
+                let fn_type = compiler.float_type.fn_type(
+                    &[compiler.float_type.into()],
+                    false,
+                );
+                compiler.builder.build_indirect_call(
+                    fn_type,
+                    fn_ptr.into_pointer_value(),
+                    compiled_args.as_slice(),
+                    "calltmp",
+                )
+            }
+            DataType::FuncObj2 => {
+                let val = compiler.builder.build_load(
+                    compiler
+                        .func2_obj_type
+                        .ptr_type(AddressSpace::default()),
+                    ptr.ptr,
+                    "loadtmp_func2_obj",
+                );
+                let ptr = compiler
+                    .builder
+                    .build_struct_gep(
+                        compiler.func2_obj_type,
+                        val.into_pointer_value(),
+                        0,
+                        "geptmp",
+                    )
+                    .map_err(|_e| {
+                        "Unable to load node for func2_obj"
+                            .to_string()
+                    })?;
+                let fn_ptr = compiler.builder.build_load(
+                    compiler.func2_ptr_type,
+                    ptr,
+                    "loadtmp_func2_ptr",
+                );
+                let fn_type = compiler.float_type.fn_type(
+                    &[
+                        compiler.float_type.into(),
+                        compiler.float_type.into(),
+                    ],
+                    false,
+                );
+                compiler.builder.build_indirect_call(
+                    fn_type,
+                    fn_ptr.into_pointer_value(),
+                    compiled_args.as_slice(),
+                    "calltmp",
+                )
+            }
+            _ => {
+                return Err("Should not happen".to_string())
+            }
+        };
+
+        debug!("Processing function call {:?}", func_call);
+        Ok(func_call
+            .try_as_basic_value()
+            .left()
+            .map(|v| v.into_float_value())
+            .unwrap()
+            .as_any_value_enum())
+    } else {
+        let func_call = compiler.builder.build_call(
+            func.unwrap(),
+            compiled_args.as_slice(),
+            "calltmp",
+        );
+
+        Ok(func_call
+            .try_as_basic_value()
+            .left()
+            .map(|v| v.into_float_value())
+            .unwrap()
+            .as_any_value_enum())
+    }
 }

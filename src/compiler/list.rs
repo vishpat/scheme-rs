@@ -303,7 +303,7 @@ pub fn compile_car<'a>(
     let val = compiler.builder.build_load(
         compiler.float_type,
         val,
-        "loadtmp",
+        "loadtmp_car",
     );
     Ok(val.as_any_value_enum())
 }
@@ -343,14 +343,14 @@ pub fn compile_cdr<'a>(
             "geptmp",
         )
         .map_err(|_e| {
-            "Unable to load node for car".to_string()
+            "Unable to load node for cdr".to_string()
         })?;
     let val = compiler.builder.build_load(
         compiler
             .node_type
             .ptr_type(AddressSpace::default()),
         val,
-        "loadtmp",
+        "loadtmp_cdr",
     );
     Ok(val.as_any_value_enum())
 }
