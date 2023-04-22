@@ -224,6 +224,9 @@ fn compile_obj<'a>(
                 AnyValueEnum::FunctionValue(v) => {
                     Ok(v.as_any_value_enum())
                 }
+                AnyValueEnum::IntValue(v) => {
+                    Ok(v.as_any_value_enum())
+                }
                 _ => Err(format!(
                     "Cannot compile object for symbol: {:?}",
                     obj
@@ -410,5 +413,23 @@ mod tests {
         ";
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 15);
+    }
+
+    #[test]
+    fn test_true() {
+        let program = "
+            (if #t 1 2)
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 1);
+    }
+    
+    #[test]
+    fn test_false() {
+        let program = "
+            (if #f 1 2)
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 2);
     }
 }
