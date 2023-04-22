@@ -29,6 +29,24 @@ pub fn process_symbol<'ctx>(
     sym: &str,
     sym_tables: &mut Rc<RefCell<SymTables<'ctx>>>,
 ) -> CompileResult<'ctx> {
+    match sym {
+        "#t" => {
+            return Ok(compiler
+                .context
+                .i8_type()
+                .const_int(1, false)
+                .as_any_value_enum())
+        }
+        "#f" => {
+            return Ok(compiler
+                .context
+                .i8_type()
+                .const_int(0, false)
+                .as_any_value_enum())
+        }
+        _ => {}
+    }
+
     let global_val = check_global_variable(compiler, sym);
     if let Some(g) = global_val {
         return Ok(g);
