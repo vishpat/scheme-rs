@@ -17,13 +17,16 @@ use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn allocate_float_node<'a>(
+fn node_alloc<'a>(
   compiler: &'a Compiler,
   val: FloatValue<'a>,
 ) -> Result<PointerValue<'a>, String> {
   let node_ptr = compiler
     .builder
     .build_alloca(compiler.node_type, "node");
+
+  debug!("Allocated node: {:?}", node_ptr);
+
   let data_ptr = compiler
     .builder
     .build_struct_gep(
@@ -55,6 +58,63 @@ pub fn allocate_float_node<'a>(
   Ok(node_ptr)
 }
 
+fn node_data<'a>(
+  compiler: &'a Compiler,
+  node_ptr: PointerValue<'a>,
+) -> Result<FloatValue<'a>, String> {
+  let val = compiler
+    .builder
+    .build_struct_gep(
+      compiler.node_type,
+      node_ptr,
+      0,
+      "load_node_data_ptr",
+    )
+    .map_err(|_e| {
+      "Unable to load node for car".to_string()
+    })?;
+  Ok(
+    compiler
+      .builder
+      .build_load(
+        compiler
+          .float_type,
+        val,
+        "load_node_data",
+      )
+      .into_float_value(),
+  )
+}
+
+fn node_next_ptr<'a>(
+  compiler: &'a Compiler,
+  node_ptr: PointerValue<'a>,
+) -> Result<PointerValue<'a>, String> {
+  let val = compiler
+    .builder
+    .build_struct_gep(
+      compiler.node_type,
+      node_ptr,
+      1,
+      "load_node_nxt_ptr",
+    )
+    .map_err(|_e| {
+      "Unable to load node for cdr".to_string()
+    })?;
+  Ok(
+    compiler
+      .builder
+      .build_load(
+        compiler
+          .node_type
+          .ptr_type(AddressSpace::default()),
+        val,
+        "load_node_nxt_ptr_val",
+      )
+      .into_pointer_value(),
+  )
+}
+
 pub fn compile_quote<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
@@ -74,10 +134,10 @@ pub fn compile_quote<'a>(
       for obj in l.iter().rev() {
         let ir_obj =
           compile_obj(compiler, obj, sym_tables)?;
-        let node_ptr = allocate_float_node(
-          compiler,
-          ir_obj.into_float_value(),
-        )?;
+        let node_ptr =
+          node_alloc(compiler, ir_obj.into_float_value())?;
+
+        debug!("quote: node_ptr: {:?}", node_ptr);
 
         let next_ptr = compiler
           .builder
@@ -135,7 +195,7 @@ pub fn compile_map<'a>(
   let mut prev_node = None;
 
   loop {
-    debug!("Processing map list: {:?}", list);
+    debug!("Processing map node: {:?}", list);
     let cmp =
       compiler.builder.build_is_null(list, "isnulltmp");
     if cmp.eq(&compiler.bool_type.const_int(1, false)) {
@@ -153,39 +213,15 @@ pub fn compile_map<'a>(
     let val = compiler.builder.build_load(
       compiler.float_type,
       data_ptr,
-      "loadtmp_car",
+      "load_float_val_map",
+    );
+    debug!(
+      "Processed map float val: {:?}",
+      val.into_float_value()
     );
 
-    let next_ptr = compiler
-      .builder
-      .build_struct_gep(
-        compiler.node_type,
-        list,
-        1,
-        "geptmp",
-      )
-      .map_err(|_e| {
-        "Unable to load node for cdr".to_string()
-      })?;
-
-    list = compiler
-      .builder
-      .build_load(
-        compiler
-          .node_type
-          .ptr_type(AddressSpace::default()),
-        next_ptr,
-        "loadtmp_cdr",
-      )
-      .into_pointer_value();
-
-    let node_ptr = allocate_float_node(
-      compiler,
-      val.into_float_value(),
-    )?;
-    if new_list.is_none() {
-      new_list = Some(node_ptr);
-    }
+    let node_ptr =
+      node_alloc(compiler, val.into_float_value())?;
 
     if let Some(prev_node) = prev_node {
       let next_ptr = compiler
@@ -202,6 +238,32 @@ pub fn compile_map<'a>(
       compiler.builder.build_store(next_ptr, node_ptr);
     }
 
+    let next_ptr = compiler
+      .builder
+      .build_struct_gep(
+        compiler.node_type,
+        list,
+        1,
+        "nxt_ptr_map",
+      )
+      .map_err(|_e| {
+        "Unable to load node for cdr".to_string()
+      })?;
+
+    list = compiler
+      .builder
+      .build_load(
+        compiler
+          .node_type
+          .ptr_type(AddressSpace::default()),
+        next_ptr,
+        "load_nxt_ptr_map",
+      )
+      .into_pointer_value();
+
+    if new_list.is_none() {
+      new_list = Some(node_ptr);
+    }
     prev_node = Some(node_ptr);
   }
 
@@ -434,7 +496,7 @@ pub fn compile_cons<'a>(
   let lhs_val = match lhs {
         AnyValueEnum::PointerValue(v) => v,
         AnyValueEnum::FloatValue(v) => {
-            allocate_float_node(compiler, v)?
+            node_alloc(compiler, v)?
         }
         _ => {
             return Err(format!(
@@ -442,13 +504,13 @@ pub fn compile_cons<'a>(
                 lhs
             ))
         }
-    };
+  };
 
   let rhs = compile_obj(compiler, &list[2], sym_tables)?;
   let rhs_val = match rhs {
         AnyValueEnum::PointerValue(v) => v,
         AnyValueEnum::FloatValue(v) => {
-            allocate_float_node(compiler, v)?
+            node_alloc(compiler, v)?
         }
         _ => {
             return Err(format!(
@@ -456,7 +518,7 @@ pub fn compile_cons<'a>(
                 rhs
             ))
         }
-    };
+  };
 
   let cmp =
     compiler.builder.build_is_null(lhs_val, "isnulltmp");
