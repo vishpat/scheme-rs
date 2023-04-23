@@ -423,7 +423,7 @@ mod tests {
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 1);
     }
-    
+
     #[test]
     fn test_false() {
         let program = "
@@ -432,4 +432,33 @@ mod tests {
         let ret = compile_and_run_program(program).unwrap();
         assert_eq!(ret, 2);
     }
+
+    #[test]
+    fn test_cons_1() {
+        let program = "
+            (car (cons (quote ()) (quote (5 6))))
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 5);
+    }
+
+    #[test]
+    fn test_cons_2() {
+        let program = "
+            (car (cons (quote (4)) (quote (5 6))))
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 4);
+    }
+
+
+    #[test]
+    fn test_cons_3() {
+        let program = "
+            (car (cons (quote (4 5)) (quote ())))
+        ";
+        let ret = compile_and_run_program(program).unwrap();
+        assert_eq!(ret, 4);
+    }
+
 }

@@ -263,6 +263,77 @@ fn compile_binary_expr<'a>(
     Ok(val)
 }
 
+pub fn compile_cons<'a>(
+    compiler: &'a Compiler,
+    list: &'a Vec<Object>,
+    sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+) -> CompileResult<'a> {
+    if list.len() != 3 {
+        return Err(format!(
+            "cons: Expected 2 arguments, found {:?}",
+            list
+        ));
+    }
+
+    debug!("Compiling cons: {:?}", list);
+    let lhs = compile_obj(compiler, &list[1], sym_tables)?;
+    let lhs_val = match lhs {
+        AnyValueEnum::PointerValue(v) => v,
+        _ => {
+            return Err(format!(
+                "Cannot compile cons expected pointer, found: {:?}",
+                list[1]
+            ))
+        }
+    };
+
+    let rhs = compile_obj(compiler, &list[2], sym_tables)?;
+    let rhs_val = match rhs {
+        AnyValueEnum::PointerValue(v) => v,
+        _ => {
+            return Err(format!(
+                "Cannot compile cons expected pointer, found: {:?}",
+                list[2]
+            ))
+        }
+    };
+
+    let cmp = compiler
+        .builder
+        .build_is_null(lhs_val, "isnulltmp");
+    if cmp.eq(&compiler.bool_type.const_int(1, false)) {
+        debug!("cons: lhs is null");
+        return Ok(rhs_val.as_any_value_enum());
+    } else {
+        debug!("cons: lhs is not null {:?} {:?}", cmp, lhs_val);
+    }
+
+    let cmp = compiler
+        .builder
+        .build_is_null(rhs_val, "isnulltmp");
+    if cmp.eq(&compiler.bool_type.const_int(1, false)) {
+        debug!("cons: rhs is null");
+        return Ok(lhs_val.as_any_value_enum());
+    } else {
+        debug!("cons: rhs is not null {:?} {:?}", cmp, rhs_val);
+    }
+
+    let val = compiler
+        .builder
+        .build_struct_gep(
+            compiler.node_type,
+            lhs_val,
+            1,
+            "geptmp",
+        )
+        .map_err(|_e| {
+            "Unable to load node for cdr".to_string()
+        })?;
+    compiler.builder.build_store(val, rhs_val);
+
+    return Ok(lhs_val.as_any_value_enum());
+}
+
 pub fn compile_car<'a>(
     compiler: &'a Compiler,
     list: &'a Vec<Object>,
@@ -407,6 +478,9 @@ pub fn compile_list<'a>(
             }
             "null?" => {
                 compile_null(compiler, list, sym_tables)
+            }
+            "cons" => {
+                compile_cons(compiler, list, sym_tables)
             }
             "car" => {
                 compile_car(compiler, list, sym_tables)
