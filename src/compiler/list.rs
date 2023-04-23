@@ -37,6 +37,21 @@ pub fn allocate_float_node<'a>(
     })?;
   compiler.builder.build_store(data_ptr, val);
 
+  let next_ptr = compiler
+    .builder
+    .build_struct_gep(
+      compiler.node_type,
+      node_ptr,
+      1,
+      "next",
+    )
+    .map_err(|_e| {
+      "Unable to build next pointer for struct".to_string()
+    })?;
+  compiler
+    .builder
+    .build_store(next_ptr, compiler.node_null);
+
   Ok(node_ptr)
 }
 
@@ -120,6 +135,7 @@ pub fn compile_map<'a>(
   let mut prev_node = None;
 
   loop {
+    debug!("Processing map list: {:?}", list);
     let cmp =
       compiler.builder.build_is_null(list, "isnulltmp");
     if cmp.eq(&compiler.bool_type.const_int(1, false)) {
@@ -151,12 +167,17 @@ pub fn compile_map<'a>(
       .map_err(|_e| {
         "Unable to load node for cdr".to_string()
       })?;
-    
-    list = compiler.builder.build_load(
-      compiler.node_type.ptr_type(AddressSpace::default()),
-      next_ptr,
-      "loadtmp_cdr",
-    ).into_pointer_value();
+
+    list = compiler
+      .builder
+      .build_load(
+        compiler
+          .node_type
+          .ptr_type(AddressSpace::default()),
+        next_ptr,
+        "loadtmp_cdr",
+      )
+      .into_pointer_value();
 
     let node_ptr = allocate_float_node(
       compiler,
@@ -193,7 +214,6 @@ pub fn compile_map<'a>(
     .as_any_value_enum(),
   )
 }
-
 
 fn compile_if<'a>(
   compiler: &'a Compiler,
