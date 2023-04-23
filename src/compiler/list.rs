@@ -62,7 +62,7 @@ fn node_data<'a>(
   compiler: &'a Compiler,
   node_ptr: PointerValue<'a>,
 ) -> Result<FloatValue<'a>, String> {
-  let val = compiler
+  let data_ptr = compiler
     .builder
     .build_struct_gep(
       compiler.node_type,
@@ -78,7 +78,7 @@ fn node_data<'a>(
       .builder
       .build_load(
         compiler.float_type,
-        val,
+        data_ptr,
         "load_node_data",
       )
       .into_float_value(),
@@ -89,7 +89,7 @@ fn node_next_ptr<'a>(
   compiler: &'a Compiler,
   node_ptr: PointerValue<'a>,
 ) -> Result<PointerValue<'a>, String> {
-  let val = compiler
+  let next_ptr = compiler
     .builder
     .build_struct_gep(
       compiler.node_type,
@@ -100,10 +100,10 @@ fn node_next_ptr<'a>(
     .map_err(|_e| {
       "Unable to load node for cdr".to_string()
     })?;
-  Ok(val)
+  Ok(next_ptr)
 }
 
-fn node_next_ptr_val<'a>(
+fn node_next<'a>(
   compiler: &'a Compiler,
   node_ptr: PointerValue<'a>,
 ) -> CompileResult<'a> {
@@ -186,70 +186,22 @@ pub fn compile_map<'a>(
 
   loop {
     debug!("Processing map node: {:?}", list);
+    let val = node_data(compiler, list)?;
+    debug!("Got map float val: {:?}", val);
+    let node_ptr = node_alloc(compiler, val)?;
+
+    if let Some(prev_node) = prev_node {
+      let next_ptr = node_next_ptr(compiler, prev_node)?; 
+      compiler.builder.build_store(next_ptr, node_ptr);
+    }
+
+    list = node_next(compiler, list)?.into_pointer_value(); 
+
     let cmp =
       compiler.builder.build_is_null(list, "isnulltmp");
     if cmp.eq(&compiler.bool_type.const_int(1, false)) {
       break;
     }
-
-    let data_ptr = compiler
-      .builder
-      .build_struct_gep(compiler.node_type, list, 0, "data")
-      .map_err(|_e| {
-        "Unable to build data pointer for struct"
-          .to_string()
-      })?;
-
-    let val = compiler.builder.build_load(
-      compiler.float_type,
-      data_ptr,
-      "load_float_val_map",
-    );
-    debug!(
-      "Processed map float val: {:?}",
-      val.into_float_value()
-    );
-
-    let node_ptr =
-      node_alloc(compiler, val.into_float_value())?;
-
-    if let Some(prev_node) = prev_node {
-      let next_ptr = compiler
-        .builder
-        .build_struct_gep(
-          compiler.node_type,
-          prev_node,
-          1,
-          "geptmp",
-        )
-        .map_err(|_e| {
-          "Unable to load node for cdr".to_string()
-        })?;
-      compiler.builder.build_store(next_ptr, node_ptr);
-    }
-
-    let next_ptr = compiler
-      .builder
-      .build_struct_gep(
-        compiler.node_type,
-        list,
-        1,
-        "nxt_ptr_map",
-      )
-      .map_err(|_e| {
-        "Unable to load node for cdr".to_string()
-      })?;
-
-    list = compiler
-      .builder
-      .build_load(
-        compiler
-          .node_type
-          .ptr_type(AddressSpace::default()),
-        next_ptr,
-        "load_nxt_ptr_map",
-      )
-      .into_pointer_value();
 
     if new_list.is_none() {
       new_list = Some(node_ptr);
@@ -590,7 +542,7 @@ pub fn compile_cdr<'a>(
   };
 
   debug!("Compiling cdr: rhs : 2 {:?}", val);
-  Ok(node_next_ptr_val(compiler, val)?)
+  Ok(node_next(compiler, val)?)
 }
 
 pub fn compile_null<'a>(
