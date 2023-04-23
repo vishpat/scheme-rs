@@ -1,16 +1,15 @@
 #[cfg(test)]
 mod tests {
-    use crate::env;
-    use crate::eval;
-    use crate::object::Object;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+  use crate::env;
+  use crate::eval;
+  use crate::object::Object;
+  use std::cell::RefCell;
+  use std::rc::Rc;
 
-    #[test]
-    fn test_compose() {
-        let mut env =
-            Rc::new(RefCell::new(env::Env::new()));
-        let program = "
+  #[test]
+  fn test_compose() {
+    let mut env = Rc::new(RefCell::new(env::Env::new()));
+    let program = "
             (define compose 
                 (lambda (f g x)
                     (f (g x))))
@@ -25,15 +24,14 @@ mod tests {
             ) 
             (compose even? (lambda (x) (- x 1)) 10)
         ";
-        let result = eval::eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Bool(false));
-    }
+    let result = eval::eval(program, &mut env).unwrap();
+    assert_eq!(result, Object::Bool(false));
+  }
 
-    #[test]
-    fn test_map_1() {
-        let mut env =
-            Rc::new(RefCell::new(env::Env::new()));
-        let program = "
+  #[test]
+  fn test_map_1() {
+    let mut env = Rc::new(RefCell::new(env::Env::new()));
+    let program = "
             (define map 
                 (lambda (f a-list)
                 (cond ((null? a-list) a-list)
@@ -49,23 +47,22 @@ mod tests {
             ) 
             (map even? (quote (1 2 3 4)))
         ";
-        let result = eval::eval(program, &mut env).unwrap();
-        assert_eq!(
-            result,
-            Object::List(vec![
-                Object::Bool(false),
-                Object::Bool(true),
-                Object::Bool(false),
-                Object::Bool(true)
-            ])
-        );
-    }
+    let result = eval::eval(program, &mut env).unwrap();
+    assert_eq!(
+      result,
+      Object::List(vec![
+        Object::Bool(false),
+        Object::Bool(true),
+        Object::Bool(false),
+        Object::Bool(true)
+      ])
+    );
+  }
 
-    #[test]
-    fn test_map_2() {
-        let mut env =
-            Rc::new(RefCell::new(env::Env::new()));
-        let program = "
+  #[test]
+  fn test_map_2() {
+    let mut env = Rc::new(RefCell::new(env::Env::new()));
+    let program = "
             (define map 
                 (lambda (f a-list)
                 (cond ((null? a-list) a-list)
@@ -78,23 +75,22 @@ mod tests {
 
             (map add-5 (quote (1 2 3 4)))
         ";
-        let result = eval::eval(program, &mut env).unwrap();
-        assert_eq!(
-            result,
-            Object::List(vec![
-                Object::Number(6.0),
-                Object::Number(7.0),
-                Object::Number(8.0),
-                Object::Number(9.0)
-            ])
-        );
-    }
+    let result = eval::eval(program, &mut env).unwrap();
+    assert_eq!(
+      result,
+      Object::List(vec![
+        Object::Number(6.0),
+        Object::Number(7.0),
+        Object::Number(8.0),
+        Object::Number(9.0)
+      ])
+    );
+  }
 
-    #[test]
-    fn test_foldr() {
-        let mut env =
-            Rc::new(RefCell::new(env::Env::new()));
-        let program = "
+  #[test]
+  fn test_foldr() {
+    let mut env = Rc::new(RefCell::new(env::Env::new()));
+    let program = "
             (define add 
                 (lambda (x y) 
                     (+ x y)))
@@ -111,7 +107,7 @@ mod tests {
 
             (sum (quote (1 2 3 4)))
         ";
-        let result = eval::eval(program, &mut env).unwrap();
-        assert_eq!(result, Object::Number(10.0));
-    }
+    let result = eval::eval(program, &mut env).unwrap();
+    assert_eq!(result, Object::Number(10.0));
+  }
 }
