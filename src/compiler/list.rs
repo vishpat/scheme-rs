@@ -9,11 +9,37 @@ use crate::object::*;
 use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
+use inkwell::values::FloatValue;
+use inkwell::values::PointerValue;
 use inkwell::AddressSpace;
 use inkwell::FloatPredicate;
 use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+pub fn allocate_float_node<'a>(
+    compiler: &'a Compiler,
+    val: FloatValue<'a>,
+) -> Result<PointerValue<'a>, String> {
+    let node_ptr = compiler
+        .builder
+        .build_alloca(compiler.node_type, "node");
+    let data_ptr = compiler
+        .builder
+        .build_struct_gep(
+            compiler.node_type,
+            node_ptr,
+            0,
+            "data",
+        )
+        .map_err(|_e| {
+            "Unable to build data pointer for struct"
+                .to_string()
+        })?;
+    compiler.builder.build_store(data_ptr, val);
+
+    Ok(node_ptr)
+}
 
 pub fn compile_quote<'a>(
     compiler: &'a Compiler,
@@ -34,22 +60,10 @@ pub fn compile_quote<'a>(
             for obj in l.iter().rev() {
                 let ir_obj =
                     compile_obj(compiler, obj, sym_tables)?;
-                let node_ptr =
-                    compiler.builder.build_alloca(
-                        compiler.node_type,
-                        "node",
-                    );
-                let data_ptr =
-                  compiler.builder.build_struct_gep(
-                      compiler.node_type,
-                      node_ptr,
-                      0,
-                      "data",
-                  ).map_err(|_e| "Unable to build data pointer for struct".to_string())?;
-                compiler.builder.build_store(
-                    data_ptr,
+                let node_ptr = allocate_float_node(
+                    compiler,
                     ir_obj.into_float_value(),
-                );
+                )?;
 
                 let next_ptr =
                   compiler.builder.build_struct_gep(
@@ -115,15 +129,35 @@ fn compile_if<'a>(
 
     compiler.builder.position_at_end(then_bb);
     let then_val =
-        compile_obj(compiler, &list[2], sym_tables)?
-            .into_float_value();
+        compile_obj(compiler, &list[2], sym_tables)?;
+    let then_val = if then_val.is_pointer_value() {
+        let ptr_val = then_val.into_pointer_value();
+        if ptr_val.is_null() {
+            compiler.float_type.const_float(0.0)
+        } else {
+            compiler.float_type.const_float(1.0)
+        }
+    } else {
+        then_val.into_float_value()
+    };
+
     compiler.builder.build_unconditional_branch(merge_bb);
     then_bb = compiler.builder.get_insert_block().unwrap();
 
     compiler.builder.position_at_end(else_bb);
     let else_val =
-        compile_obj(compiler, &list[3], sym_tables)?
-            .into_float_value();
+        compile_obj(compiler, &list[3], sym_tables)?;
+    let else_val = if else_val.is_pointer_value() {
+        let ptr_val = else_val.into_pointer_value();
+        if ptr_val.is_null() {
+            compiler.float_type.const_float(0.0)
+        } else {
+            compiler.float_type.const_float(1.0)
+        }
+    } else {
+        else_val.into_float_value()
+    };
+
     compiler.builder.build_unconditional_branch(merge_bb);
     else_bb = compiler.builder.get_insert_block().unwrap();
 
@@ -279,10 +313,13 @@ pub fn compile_cons<'a>(
     let lhs = compile_obj(compiler, &list[1], sym_tables)?;
     let lhs_val = match lhs {
         AnyValueEnum::PointerValue(v) => v,
+        AnyValueEnum::FloatValue(v) => {
+            allocate_float_node(compiler, v)?
+        }
         _ => {
             return Err(format!(
-                "Cannot compile cons expected pointer, found: {:?}",
-                list[1]
+                "Cannot compile cons expected pointer, lhs found: {:?}",
+                lhs
             ))
         }
     };
@@ -290,10 +327,13 @@ pub fn compile_cons<'a>(
     let rhs = compile_obj(compiler, &list[2], sym_tables)?;
     let rhs_val = match rhs {
         AnyValueEnum::PointerValue(v) => v,
+        AnyValueEnum::FloatValue(v) => {
+            allocate_float_node(compiler, v)?
+        }
         _ => {
             return Err(format!(
-                "Cannot compile cons expected pointer, found: {:?}",
-                list[2]
+                "Cannot compile cons expected pointer, rhs found: {:?}",
+                rhs
             ))
         }
     };
@@ -305,7 +345,10 @@ pub fn compile_cons<'a>(
         debug!("cons: lhs is null");
         return Ok(rhs_val.as_any_value_enum());
     } else {
-        debug!("cons: lhs is not null {:?} {:?}", cmp, lhs_val);
+        debug!(
+            "cons: lhs is not null {:?} {:?}",
+            cmp, lhs_val
+        );
     }
 
     let cmp = compiler
@@ -315,7 +358,10 @@ pub fn compile_cons<'a>(
         debug!("cons: rhs is null");
         return Ok(lhs_val.as_any_value_enum());
     } else {
-        debug!("cons: rhs is not null {:?} {:?}", cmp, rhs_val);
+        debug!(
+            "cons: rhs is not null {:?} {:?}",
+            cmp, rhs_val
+        );
     }
 
     let val = compiler
@@ -354,7 +400,7 @@ pub fn compile_car<'a>(
         _ => {
             return Err(format!(
                 "Cannot compile car expected pointer, found: {:?}",
-                list[1]
+                val
             ))
         }
     };
