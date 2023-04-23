@@ -77,8 +77,7 @@ fn node_data<'a>(
     compiler
       .builder
       .build_load(
-        compiler
-          .float_type,
+        compiler.float_type,
         val,
         "load_node_data",
       )
@@ -101,30 +100,20 @@ fn node_next_ptr<'a>(
     .map_err(|_e| {
       "Unable to load node for cdr".to_string()
     })?;
-    Ok(val)
+  Ok(val)
 }
 
 fn node_next_ptr_val<'a>(
   compiler: &'a Compiler,
   node_ptr: PointerValue<'a>,
 ) -> CompileResult<'a> {
-  let val = compiler
-    .builder
-    .build_struct_gep(
-      compiler.node_type,
-      node_ptr,
-      1,
-      "load_node_nxt_ptr",
-    )
-    .map_err(|_e| {
-      "Unable to load node for cdr".to_string()
-    })?;
+  let next_ptr = node_next_ptr(compiler, node_ptr)?;
   let val = compiler.builder.build_load(
     compiler.node_type.ptr_type(AddressSpace::default()),
-    val,
+    next_ptr,
     "loadtmp_cdr",
   );
-    Ok(val.as_any_value_enum())
+  Ok(val.as_any_value_enum())
 }
 
 pub fn compile_quote<'a>(
@@ -539,7 +528,7 @@ pub fn compile_cons<'a>(
     debug!("cons: rhs is not null {:?} {:?}", cmp, rhs_val);
   }
 
-  let val = node_next_ptr(compiler, lhs_val)?; 
+  let val = node_next_ptr(compiler, lhs_val)?;
   compiler.builder.build_store(val, rhs_val);
 
   return Ok(lhs_val.as_any_value_enum());
@@ -571,7 +560,7 @@ pub fn compile_car<'a>(
   };
 
   debug!("Compiling car: rhs : 2 {:?}", val);
-  let val = node_data(compiler, val)?; 
+  let val = node_data(compiler, val)?;
   Ok(val.as_any_value_enum())
 }
 
