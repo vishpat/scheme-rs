@@ -92,6 +92,109 @@ pub fn compile_quote<'a>(
   }
 }
 
+pub fn compile_map<'a>(
+  compiler: &'a Compiler,
+  list: &'a Vec<Object>,
+  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+) -> CompileResult<'a> {
+  if list.len() != 3 {
+    return Err(format!(
+      "Expected 2 argument, found {}",
+      list.len() - 1
+    ));
+  }
+  debug!("Processing map: {:?}", list);
+
+  let func = compile_obj(compiler, &list[1], sym_tables)?;
+  let func = func.into_function_value();
+  if func.count_params() != 1 {
+    return Err(format!(
+      "Expected 1 argument for the map function, found {}",
+      func.count_params()
+    ));
+  }
+
+  let list = compile_obj(compiler, &list[2], sym_tables)?;
+  let mut list = list.into_pointer_value();
+  let mut new_list = None;
+  let mut prev_node = None;
+
+  loop {
+    let cmp =
+      compiler.builder.build_is_null(list, "isnulltmp");
+    if cmp.eq(&compiler.bool_type.const_int(1, false)) {
+      break;
+    }
+
+    let data_ptr = compiler
+      .builder
+      .build_struct_gep(compiler.node_type, list, 0, "data")
+      .map_err(|_e| {
+        "Unable to build data pointer for struct"
+          .to_string()
+      })?;
+
+    let val = compiler.builder.build_load(
+      compiler.float_type,
+      data_ptr,
+      "loadtmp_car",
+    );
+
+    let next_ptr = compiler
+      .builder
+      .build_struct_gep(
+        compiler.node_type,
+        list,
+        1,
+        "geptmp",
+      )
+      .map_err(|_e| {
+        "Unable to load node for cdr".to_string()
+      })?;
+    
+    list = compiler.builder.build_load(
+      compiler.node_type.ptr_type(AddressSpace::default()),
+      next_ptr,
+      "loadtmp_cdr",
+    ).into_pointer_value();
+
+    let node_ptr = allocate_float_node(
+      compiler,
+      val.into_float_value(),
+    )?;
+    if new_list.is_none() {
+      new_list = Some(node_ptr);
+    }
+
+    if let Some(prev_node) = prev_node {
+      let next_ptr = compiler
+        .builder
+        .build_struct_gep(
+          compiler.node_type,
+          prev_node,
+          1,
+          "geptmp",
+        )
+        .map_err(|_e| {
+          "Unable to load node for cdr".to_string()
+        })?;
+      compiler.builder.build_store(next_ptr, node_ptr);
+    }
+
+    prev_node = Some(node_ptr);
+  }
+
+  Ok(
+    if new_list.is_some() {
+      new_list.unwrap()
+    } else {
+      compiler.node_null
+    }
+    .as_any_value_enum(),
+  )
+}
+
+
 fn compile_if<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
@@ -384,14 +487,15 @@ pub fn compile_car<'a>(
   let val = compile_obj(compiler, &list[1], sym_tables)?;
   debug!("Compiling car: rhs : 1 {:?}", val);
 
-  let val =
-    match val {
-      AnyValueEnum::PointerValue(v) => v,
-      _ => return Err(format!(
+  let val = match val {
+    AnyValueEnum::PointerValue(v) => v,
+    _ => {
+      return Err(format!(
         "Cannot compile car expected pointer, found: {:?}",
         val
-      )),
-    };
+      ))
+    }
+  };
 
   debug!("Compiling car: rhs : 2 {:?}", val);
   let val = compiler
@@ -423,14 +527,15 @@ pub fn compile_cdr<'a>(
   let val = compile_obj(compiler, &list[1], sym_tables)?;
   debug!("Compiling cdr: rhs : 1 {:?}", val);
 
-  let val =
-    match val {
-      AnyValueEnum::PointerValue(v) => v,
-      _ => return Err(format!(
+  let val = match val {
+    AnyValueEnum::PointerValue(v) => v,
+    _ => {
+      return Err(format!(
         "Cannot compile cdr expected pointer, found: {:?}",
         list[1]
-      )),
-    };
+      ))
+    }
+  };
 
   debug!("Compiling cdr: rhs : 2 {:?}", val);
   let val = compiler
@@ -464,10 +569,12 @@ pub fn compile_null<'a>(
 
   let val = match val {
     AnyValueEnum::PointerValue(v) => v,
-    _ => return Err(format!(
+    _ => {
+      return Err(format!(
       "Cannot compile null? expected pointer, found: {:?}",
       list[1]
-    )),
+    ))
+    }
   };
 
   let cmp =
@@ -493,6 +600,7 @@ pub fn compile_list<'a>(
         compile_define(compiler, list, sym_tables)
       }
       "quote" => compile_quote(compiler, list, sym_tables),
+      "map" => compile_map(compiler, list, sym_tables),
       "null?" => compile_null(compiler, list, sym_tables),
       "cons" => compile_cons(compiler, list, sym_tables),
       "car" => compile_car(compiler, list, sym_tables),
