@@ -104,6 +104,29 @@ fn node_next_ptr<'a>(
     Ok(val)
 }
 
+fn node_next_ptr_val<'a>(
+  compiler: &'a Compiler,
+  node_ptr: PointerValue<'a>,
+) -> CompileResult<'a> {
+  let val = compiler
+    .builder
+    .build_struct_gep(
+      compiler.node_type,
+      node_ptr,
+      1,
+      "load_node_nxt_ptr",
+    )
+    .map_err(|_e| {
+      "Unable to load node for cdr".to_string()
+    })?;
+  let val = compiler.builder.build_load(
+    compiler.node_type.ptr_type(AddressSpace::default()),
+    val,
+    "loadtmp_cdr",
+  );
+    Ok(val.as_any_value_enum())
+}
+
 pub fn compile_quote<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
@@ -578,18 +601,7 @@ pub fn compile_cdr<'a>(
   };
 
   debug!("Compiling cdr: rhs : 2 {:?}", val);
-  let val = compiler
-    .builder
-    .build_struct_gep(compiler.node_type, val, 1, "geptmp")
-    .map_err(|_e| {
-      "Unable to load node for cdr".to_string()
-    })?;
-  let val = compiler.builder.build_load(
-    compiler.node_type.ptr_type(AddressSpace::default()),
-    val,
-    "loadtmp_cdr",
-  );
-  Ok(val.as_any_value_enum())
+  Ok(node_next_ptr_val(compiler, val)?)
 }
 
 pub fn compile_null<'a>(
