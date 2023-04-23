@@ -424,19 +424,41 @@ mod tests {
   #[test]
   fn test_cons_1() {
     let program = "
-            (car (cons (quote ()) (quote (5 6))))
+    (define (add x y) 
+        (+ x y))
+
+    (define (foldr f2_func end l_lst)
+        (if (null? l_lst)
+            end
+            (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+
+    (define (sum l_lst) 
+        (foldr add 0 l_lst))
+    
+    (sum (cons (quote ()) (quote (5 6))))
         ";
     let ret = compile_and_run_program(program).unwrap();
-    assert_eq!(ret, 5);
+    assert_eq!(ret, 11);
   }
 
   #[test]
   fn test_cons_2() {
     let program = "
-            (car (cons (quote (4)) (quote (5 6))))
+    (define (add x y) 
+        (+ x y))
+
+    (define (foldr f2_func end l_lst)
+        (if (null? l_lst)
+            end
+            (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+
+    (define (sum l_lst) 
+        (foldr add 0 l_lst))
+ 
+    (sum (cons (quote (4)) (quote (5 6))))
         ";
     let ret = compile_and_run_program(program).unwrap();
-    assert_eq!(ret, 4);
+    assert_eq!(ret, 15);
   }
 
   #[test]
