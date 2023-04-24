@@ -131,6 +131,10 @@ pub fn compile_quote<'a>(
 
   match &list[1] {
     Object::List(l) => {
+      if l.is_empty() {
+        return Ok(compiler.node_null.as_any_value_enum());
+      }
+
       let mut prev = None;
       for obj in l.iter().rev() {
         let ir_obj =
@@ -277,7 +281,7 @@ pub fn compile_cdr<'a>(
   };
 
   debug!("Compiling cdr: rhs : 2 {:?}", val);
-  Ok(node_next(compiler, val)?)
+  node_next(compiler, val)
 }
 
 pub fn compile_map<'a>(
@@ -319,7 +323,8 @@ pub fn compile_map<'a>(
       .unwrap();
 
     debug!("Got map float val: {:?}", val);
-    let node_ptr = node_alloc(compiler, mapped_val.into_float_value())?;
+    let node_ptr =
+      node_alloc(compiler, mapped_val.into_float_value())?;
 
     if let Some(prev_node) = prev_node {
       let next_ptr = node_next_ptr(compiler, prev_node)?;
@@ -341,8 +346,8 @@ pub fn compile_map<'a>(
     i += 1;
   }
   Ok(
-    if new_list.is_some() {
-      new_list.unwrap()
+    if let Some(new_list) = new_list {
+      new_list
     } else {
       compiler.node_null
     }
