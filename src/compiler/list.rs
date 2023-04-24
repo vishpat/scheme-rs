@@ -131,7 +131,7 @@ pub fn compile_quote<'a>(
 
   match &list[1] {
     Object::List(l) => {
-      let mut prev = Some(compiler.node_null);
+      let mut prev = None;
       for obj in l.iter().rev() {
         let ir_obj =
           compile_obj(compiler, obj, sym_tables)?;
