@@ -17,13 +17,16 @@ use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn allocate_float_node<'a>(
+fn node_alloc<'a>(
   compiler: &'a Compiler,
   val: FloatValue<'a>,
 ) -> Result<PointerValue<'a>, String> {
   let node_ptr = compiler
     .builder
     .build_alloca(compiler.node_type, "node");
+
+  debug!("Allocated node: {:?}", node_ptr);
+
   let data_ptr = compiler
     .builder
     .build_struct_gep(
@@ -37,7 +40,80 @@ pub fn allocate_float_node<'a>(
     })?;
   compiler.builder.build_store(data_ptr, val);
 
+  let next_ptr = compiler
+    .builder
+    .build_struct_gep(
+      compiler.node_type,
+      node_ptr,
+      1,
+      "next",
+    )
+    .map_err(|_e| {
+      "Unable to build next pointer for struct".to_string()
+    })?;
+  compiler
+    .builder
+    .build_store(next_ptr, compiler.node_null);
+
   Ok(node_ptr)
+}
+
+fn node_data<'a>(
+  compiler: &'a Compiler,
+  node_ptr: PointerValue<'a>,
+) -> Result<FloatValue<'a>, String> {
+  let data_ptr = compiler
+    .builder
+    .build_struct_gep(
+      compiler.node_type,
+      node_ptr,
+      0,
+      "load_node_data_ptr",
+    )
+    .map_err(|_e| {
+      "Unable to load node for car".to_string()
+    })?;
+  Ok(
+    compiler
+      .builder
+      .build_load(
+        compiler.float_type,
+        data_ptr,
+        "load_node_data",
+      )
+      .into_float_value(),
+  )
+}
+
+fn node_next_ptr<'a>(
+  compiler: &'a Compiler,
+  node_ptr: PointerValue<'a>,
+) -> Result<PointerValue<'a>, String> {
+  let next_ptr = compiler
+    .builder
+    .build_struct_gep(
+      compiler.node_type,
+      node_ptr,
+      1,
+      "load_node_nxt_ptr",
+    )
+    .map_err(|_e| {
+      "Unable to load node for cdr".to_string()
+    })?;
+  Ok(next_ptr)
+}
+
+fn node_next<'a>(
+  compiler: &'a Compiler,
+  node_ptr: PointerValue<'a>,
+) -> CompileResult<'a> {
+  let next_ptr = node_next_ptr(compiler, node_ptr)?;
+  let val = compiler.builder.build_load(
+    compiler.node_type.ptr_type(AddressSpace::default()),
+    next_ptr,
+    "loadtmp_cdr",
+  );
+  Ok(val.as_any_value_enum())
 }
 
 pub fn compile_quote<'a>(
@@ -55,27 +131,20 @@ pub fn compile_quote<'a>(
 
   match &list[1] {
     Object::List(l) => {
-      let mut prev = Some(compiler.node_null);
+      if l.is_empty() {
+        return Ok(compiler.node_null.as_any_value_enum());
+      }
+
+      let mut prev = None;
       for obj in l.iter().rev() {
         let ir_obj =
           compile_obj(compiler, obj, sym_tables)?;
-        let node_ptr = allocate_float_node(
-          compiler,
-          ir_obj.into_float_value(),
-        )?;
+        let node_ptr =
+          node_alloc(compiler, ir_obj.into_float_value())?;
 
-        let next_ptr = compiler
-          .builder
-          .build_struct_gep(
-            compiler.node_type,
-            node_ptr,
-            1,
-            "next",
-          )
-          .map_err(|_e| {
-            "Unable to build next pointer for struct"
-              .to_string()
-          })?;
+        debug!("quote: node_ptr: {:?}", node_ptr);
+
+        let next_ptr = node_next_ptr(compiler, node_ptr)?;
 
         if let Some(prev) = prev {
           compiler.builder.build_store(next_ptr, prev);
@@ -90,6 +159,200 @@ pub fn compile_quote<'a>(
     }
     _ => Err("Expected number".to_string()),
   }
+}
+
+pub fn compile_cons<'a>(
+  compiler: &'a Compiler,
+  list: &'a Vec<Object>,
+  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+) -> CompileResult<'a> {
+  if list.len() != 3 {
+    return Err(format!(
+      "cons: Expected 2 arguments, found {:?}",
+      list
+    ));
+  }
+
+  debug!("Compiling cons: {:?}", list);
+  let lhs = compile_obj(compiler, &list[1], sym_tables)?;
+  let lhs_val = match lhs {
+        AnyValueEnum::FloatValue(v) => {
+            node_alloc(compiler, v)?
+        }
+        _ => {
+            return Err(format!(
+                "Cannot compile cons expected float value, lhs found: {:?}",
+                lhs
+            ))
+        }
+  };
+
+  let rhs = compile_obj(compiler, &list[2], sym_tables)?;
+  let rhs_val = match rhs {
+        AnyValueEnum::PointerValue(v) => v,
+        AnyValueEnum::FloatValue(v) => {
+            node_alloc(compiler, v)?
+        }
+        _ => {
+            return Err(format!(
+                "Cannot compile cons expected pointer, rhs found: {:?}",
+                rhs
+            ))
+        }
+  };
+
+  let cmp =
+    compiler.builder.build_is_null(lhs_val, "isnulltmp");
+  if cmp.eq(&compiler.bool_type.const_int(1, false)) {
+    debug!("cons: lhs is null");
+    return Ok(rhs_val.as_any_value_enum());
+  } else {
+    debug!("cons: lhs is not null {:?} {:?}", cmp, lhs_val);
+  }
+
+  let cmp =
+    compiler.builder.build_is_null(rhs_val, "isnulltmp");
+  if cmp.eq(&compiler.bool_type.const_int(1, false)) {
+    debug!("cons: rhs is null");
+    return Ok(lhs_val.as_any_value_enum());
+  } else {
+    debug!("cons: rhs is not null {:?} {:?}", cmp, rhs_val);
+  }
+
+  let val = node_next_ptr(compiler, lhs_val)?;
+  compiler.builder.build_store(val, rhs_val);
+
+  return Ok(lhs_val.as_any_value_enum());
+}
+
+pub fn compile_car<'a>(
+  compiler: &'a Compiler,
+  list: &'a Vec<Object>,
+  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+) -> CompileResult<'a> {
+  if list.len() != 2 {
+    return Err(format!(
+      "car: Expected 1 argument, found {:?}",
+      list
+    ));
+  }
+
+  let val = compile_obj(compiler, &list[1], sym_tables)?;
+  debug!("Compiling car: rhs : 1 {:?}", val);
+
+  let val = match val {
+    AnyValueEnum::PointerValue(v) => v,
+    _ => {
+      return Err(format!(
+        "Cannot compile car expected pointer, found: {:?}",
+        val
+      ))
+    }
+  };
+
+  debug!("Compiling car: rhs : 2 {:?}", val);
+  let val = node_data(compiler, val)?;
+  Ok(val.as_any_value_enum())
+}
+
+pub fn compile_cdr<'a>(
+  compiler: &'a Compiler,
+  list: &'a Vec<Object>,
+  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+) -> CompileResult<'a> {
+  if list.len() != 2 {
+    return Err(format!(
+      "cdr: Expected 1 argument, found {:?}",
+      list
+    ));
+  }
+
+  let val = compile_obj(compiler, &list[1], sym_tables)?;
+  debug!("Compiling cdr: rhs : 1 {:?}", val);
+
+  let val = match val {
+    AnyValueEnum::PointerValue(v) => v,
+    _ => {
+      return Err(format!(
+        "Cannot compile cdr expected pointer, found: {:?}",
+        list[1]
+      ))
+    }
+  };
+
+  debug!("Compiling cdr: rhs : 2 {:?}", val);
+  node_next(compiler, val)
+}
+
+pub fn compile_map<'a>(
+  compiler: &'a Compiler,
+  list: &'a Vec<Object>,
+  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+) -> CompileResult<'a> {
+  if list.len() != 3 {
+    return Err(format!(
+      "Expected 2 argument, found {}",
+      list.len() - 1
+    ));
+  }
+  debug!("Processing map: {:?}", list);
+
+  let func = compile_obj(compiler, &list[1], sym_tables)?;
+  let func = func.into_function_value();
+  if func.count_params() != 1 {
+    return Err(format!(
+      "Expected 1 argument for the map function, found {}",
+      func.count_params()
+    ));
+  }
+
+  let list = compile_obj(compiler, &list[2], sym_tables)?;
+  let mut list = list.into_pointer_value();
+  let mut new_list = None;
+  let mut prev_node = None;
+  let mut i = 0;
+
+  while i < 5 {
+    debug!("Processing map node: {:?}", list);
+    let val = node_data(compiler, list)?;
+    let mapped_val = compiler
+      .builder
+      .build_call(func, &[val.into()], "mapval")
+      .try_as_basic_value()
+      .left()
+      .unwrap();
+
+    debug!("Got map float val: {:?}", val);
+    let node_ptr =
+      node_alloc(compiler, mapped_val.into_float_value())?;
+
+    if let Some(prev_node) = prev_node {
+      let next_ptr = node_next_ptr(compiler, prev_node)?;
+      compiler.builder.build_store(next_ptr, node_ptr);
+    }
+
+    list = node_next(compiler, list)?.into_pointer_value();
+
+    let cmp =
+      compiler.builder.build_is_null(list, "isnulltmp");
+    if cmp.eq(&compiler.bool_type.const_int(1, false)) {
+      break;
+    }
+
+    if new_list.is_none() {
+      new_list = Some(node_ptr);
+    }
+    prev_node = Some(node_ptr);
+    i += 1;
+  }
+  Ok(
+    if let Some(new_list) = new_list {
+      new_list
+    } else {
+      compiler.node_null
+    }
+    .as_any_value_enum(),
+  )
 }
 
 fn compile_if<'a>(
@@ -294,159 +557,6 @@ fn compile_binary_expr<'a>(
   Ok(val)
 }
 
-pub fn compile_cons<'a>(
-  compiler: &'a Compiler,
-  list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
-) -> CompileResult<'a> {
-  if list.len() != 3 {
-    return Err(format!(
-      "cons: Expected 2 arguments, found {:?}",
-      list
-    ));
-  }
-
-  debug!("Compiling cons: {:?}", list);
-  let lhs = compile_obj(compiler, &list[1], sym_tables)?;
-  let lhs_val = match lhs {
-        AnyValueEnum::PointerValue(v) => v,
-        AnyValueEnum::FloatValue(v) => {
-            allocate_float_node(compiler, v)?
-        }
-        _ => {
-            return Err(format!(
-                "Cannot compile cons expected pointer, lhs found: {:?}",
-                lhs
-            ))
-        }
-    };
-
-  let rhs = compile_obj(compiler, &list[2], sym_tables)?;
-  let rhs_val = match rhs {
-        AnyValueEnum::PointerValue(v) => v,
-        AnyValueEnum::FloatValue(v) => {
-            allocate_float_node(compiler, v)?
-        }
-        _ => {
-            return Err(format!(
-                "Cannot compile cons expected pointer, rhs found: {:?}",
-                rhs
-            ))
-        }
-    };
-
-  let cmp =
-    compiler.builder.build_is_null(lhs_val, "isnulltmp");
-  if cmp.eq(&compiler.bool_type.const_int(1, false)) {
-    debug!("cons: lhs is null");
-    return Ok(rhs_val.as_any_value_enum());
-  } else {
-    debug!("cons: lhs is not null {:?} {:?}", cmp, lhs_val);
-  }
-
-  let cmp =
-    compiler.builder.build_is_null(rhs_val, "isnulltmp");
-  if cmp.eq(&compiler.bool_type.const_int(1, false)) {
-    debug!("cons: rhs is null");
-    return Ok(lhs_val.as_any_value_enum());
-  } else {
-    debug!("cons: rhs is not null {:?} {:?}", cmp, rhs_val);
-  }
-
-  let val = compiler
-    .builder
-    .build_struct_gep(
-      compiler.node_type,
-      lhs_val,
-      1,
-      "geptmp",
-    )
-    .map_err(|_e| {
-      "Unable to load node for cdr".to_string()
-    })?;
-  compiler.builder.build_store(val, rhs_val);
-
-  return Ok(lhs_val.as_any_value_enum());
-}
-
-pub fn compile_car<'a>(
-  compiler: &'a Compiler,
-  list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
-) -> CompileResult<'a> {
-  if list.len() != 2 {
-    return Err(format!(
-      "car: Expected 1 argument, found {:?}",
-      list
-    ));
-  }
-
-  let val = compile_obj(compiler, &list[1], sym_tables)?;
-  debug!("Compiling car: rhs : 1 {:?}", val);
-
-  let val =
-    match val {
-      AnyValueEnum::PointerValue(v) => v,
-      _ => return Err(format!(
-        "Cannot compile car expected pointer, found: {:?}",
-        val
-      )),
-    };
-
-  debug!("Compiling car: rhs : 2 {:?}", val);
-  let val = compiler
-    .builder
-    .build_struct_gep(compiler.node_type, val, 0, "geptmp")
-    .map_err(|_e| {
-      "Unable to load node for car".to_string()
-    })?;
-  let val = compiler.builder.build_load(
-    compiler.float_type,
-    val,
-    "loadtmp_car",
-  );
-  Ok(val.as_any_value_enum())
-}
-
-pub fn compile_cdr<'a>(
-  compiler: &'a Compiler,
-  list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
-) -> CompileResult<'a> {
-  if list.len() != 2 {
-    return Err(format!(
-      "cdr: Expected 1 argument, found {:?}",
-      list
-    ));
-  }
-
-  let val = compile_obj(compiler, &list[1], sym_tables)?;
-  debug!("Compiling cdr: rhs : 1 {:?}", val);
-
-  let val =
-    match val {
-      AnyValueEnum::PointerValue(v) => v,
-      _ => return Err(format!(
-        "Cannot compile cdr expected pointer, found: {:?}",
-        list[1]
-      )),
-    };
-
-  debug!("Compiling cdr: rhs : 2 {:?}", val);
-  let val = compiler
-    .builder
-    .build_struct_gep(compiler.node_type, val, 1, "geptmp")
-    .map_err(|_e| {
-      "Unable to load node for cdr".to_string()
-    })?;
-  let val = compiler.builder.build_load(
-    compiler.node_type.ptr_type(AddressSpace::default()),
-    val,
-    "loadtmp_cdr",
-  );
-  Ok(val.as_any_value_enum())
-}
-
 pub fn compile_null<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
@@ -464,10 +574,12 @@ pub fn compile_null<'a>(
 
   let val = match val {
     AnyValueEnum::PointerValue(v) => v,
-    _ => return Err(format!(
+    _ => {
+      return Err(format!(
       "Cannot compile null? expected pointer, found: {:?}",
       list[1]
-    )),
+    ))
+    }
   };
 
   let cmp =
@@ -493,6 +605,7 @@ pub fn compile_list<'a>(
         compile_define(compiler, list, sym_tables)
       }
       "quote" => compile_quote(compiler, list, sym_tables),
+      "map" => compile_map(compiler, list, sym_tables),
       "null?" => compile_null(compiler, list, sym_tables),
       "cons" => compile_cons(compiler, list, sym_tables),
       "car" => compile_car(compiler, list, sym_tables),
