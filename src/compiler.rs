@@ -228,4 +228,3 @@ fn compile_obj<'a>(
   };
   val
 }
-

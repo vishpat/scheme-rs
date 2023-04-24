@@ -306,19 +306,27 @@ pub fn compile_map<'a>(
   let mut list = list.into_pointer_value();
   let mut new_list = None;
   let mut prev_node = None;
+  let mut i = 0;
 
-  loop {
+  while i < 5 {
     debug!("Processing map node: {:?}", list);
     let val = node_data(compiler, list)?;
+    let mapped_val = compiler
+      .builder
+      .build_call(func, &[val.into()], "mapval")
+      .try_as_basic_value()
+      .left()
+      .unwrap();
+
     debug!("Got map float val: {:?}", val);
-    let node_ptr = node_alloc(compiler, val)?;
+    let node_ptr = node_alloc(compiler, mapped_val.into_float_value())?;
 
     if let Some(prev_node) = prev_node {
-      let next_ptr = node_next_ptr(compiler, prev_node)?; 
+      let next_ptr = node_next_ptr(compiler, prev_node)?;
       compiler.builder.build_store(next_ptr, node_ptr);
     }
 
-    list = node_next(compiler, list)?.into_pointer_value(); 
+    list = node_next(compiler, list)?.into_pointer_value();
 
     let cmp =
       compiler.builder.build_is_null(list, "isnulltmp");
@@ -330,8 +338,8 @@ pub fn compile_map<'a>(
       new_list = Some(node_ptr);
     }
     prev_node = Some(node_ptr);
+    i += 1;
   }
-
   Ok(
     if new_list.is_some() {
       new_list.unwrap()
@@ -543,8 +551,6 @@ fn compile_binary_expr<'a>(
   };
   Ok(val)
 }
-
-
 
 pub fn compile_null<'a>(
   compiler: &'a Compiler,
