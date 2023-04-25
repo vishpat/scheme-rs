@@ -7,6 +7,10 @@ pub fn compile_number<'a>(
   n: &'a f64,
 ) -> CompileResult<'a> {
   Ok(
-    compiler.float_type.const_float(*n).as_any_value_enum(),
+    compiler
+      .types
+      .float_type
+      .const_float(*n)
+      .as_any_value_enum(),
   )
 }

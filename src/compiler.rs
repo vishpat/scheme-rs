@@ -26,12 +26,7 @@ use std::rc::Rc;
 
 const MAIN_FUNC_NAME: &str = "main";
 
-pub struct Compiler<'ctx> {
-  pub context: &'ctx Context,
-  pub builder: Builder<'ctx>,
-  pub module: Module<'ctx>,
-  pub fpm:
-    inkwell::passes::PassManager<FunctionValue<'ctx>>,
+pub struct LLVMTypes<'ctx> {
   pub int_type: inkwell::types::IntType<'ctx>,
   pub float_type: inkwell::types::FloatType<'ctx>,
   pub node_type: inkwell::types::StructType<'ctx>,
@@ -41,6 +36,15 @@ pub struct Compiler<'ctx> {
   pub func2_obj_type: inkwell::types::StructType<'ctx>,
   pub func2_ptr_type: inkwell::types::BasicTypeEnum<'ctx>,
   pub bool_type: inkwell::types::IntType<'ctx>,
+}
+
+pub struct Compiler<'ctx> {
+  pub context: &'ctx Context,
+  pub builder: Builder<'ctx>,
+  pub module: Module<'ctx>,
+  pub fpm:
+    inkwell::passes::PassManager<FunctionValue<'ctx>>,
+  pub types: LLVMTypes<'ctx>,
   pub main_func: FunctionValue<'ctx>,
 }
 
@@ -93,11 +97,7 @@ impl<'ctx> Compiler<'ctx> {
       None,
     );
 
-    Self {
-      context,
-      builder,
-      module,
-      fpm,
+    let types = LLVMTypes {
       int_type: context.i64_type(),
       float_type: context.f64_type(),
       node_type,
@@ -107,6 +107,14 @@ impl<'ctx> Compiler<'ctx> {
       func2_obj_type,
       func2_ptr_type,
       bool_type,
+    };
+
+    Self {
+      context,
+      builder,
+      module,
+      fpm,
+      types,
       main_func,
     }
   }
@@ -151,11 +159,11 @@ pub fn compile_and_run_program(
             let val = val.into_float_value();
             compiler.builder.build_float_to_unsigned_int(
               val,
-              compiler.int_type,
+              compiler.types.int_type,
               "rettmp",
             )
           }
-          _ => compiler.int_type.const_zero(),
+          _ => compiler.types.int_type.const_zero(),
         };
 
         idx += 1;
