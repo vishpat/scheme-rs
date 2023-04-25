@@ -61,7 +61,9 @@ impl<'ctx> Compiler<'ctx> {
       ],
       false,
     );
-    let node_null = node_type.ptr_type(AddressSpace::default()).const_null(); 
+    let node_null = node_type
+      .ptr_type(AddressSpace::default())
+      .const_null();
     let func1_obj_type =
       context.opaque_struct_type("func1_obj");
     let func1_ptr_type = context

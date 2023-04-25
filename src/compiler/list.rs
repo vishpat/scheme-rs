@@ -332,7 +332,7 @@ pub fn compile_map<'a>(
     let node_next_ptr = node_next_ptr(compiler, list)?;
     if node_next_ptr == compiler.types.node_null {
       break;
-    } 
+    }
     debug!("Got map next ptr: {:?}", node_next_ptr);
 
     list = node_next(compiler, list)?.into_pointer_value();

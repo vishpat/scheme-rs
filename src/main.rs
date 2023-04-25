@@ -1,11 +1,11 @@
 mod compiler;
 mod env;
 mod eval;
+mod interpreter_tests;
 mod lexer;
 mod object;
 mod parser;
 mod sym_table;
-mod interpreter_tests;
 
 use linefeed::{Interface, ReadResult};
 use object::Object;
