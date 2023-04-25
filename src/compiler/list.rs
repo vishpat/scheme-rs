@@ -140,7 +140,7 @@ pub fn compile_quote<'a>(
         );
       }
 
-      let mut prev = None;
+      let mut prev = compiler.types.node_null;
       for obj in l.iter().rev() {
         let ir_obj =
           compile_obj(compiler, obj, sym_tables)?;
@@ -151,17 +151,10 @@ pub fn compile_quote<'a>(
 
         let next_ptr = node_next_ptr(compiler, node_ptr)?;
 
-        if let Some(prev) = prev {
-          compiler.builder.build_store(next_ptr, prev);
-        } else {
-          compiler.builder.build_store(
-            next_ptr,
-            compiler.types.node_null,
-          );
-        }
-        prev = Some(node_ptr);
+        compiler.builder.build_store(next_ptr, prev);
+        prev = node_ptr;
       }
-      Ok(prev.unwrap().as_any_value_enum())
+      Ok(prev.as_any_value_enum())
     }
     _ => Err("Expected number".to_string()),
   }
@@ -316,9 +309,8 @@ pub fn compile_map<'a>(
   let mut list = list.into_pointer_value();
   let mut new_list = None;
   let mut prev_node = None;
-  let mut i = 0;
 
-  while i < 5 {
+  loop {
     debug!("Processing map node: {:?}", list);
     let val = node_data(compiler, list)?;
     let mapped_val = compiler
@@ -337,8 +329,14 @@ pub fn compile_map<'a>(
       compiler.builder.build_store(next_ptr, node_ptr);
     }
 
-    list = node_next(compiler, list)?.into_pointer_value();
+    let node_next_ptr = node_next_ptr(compiler, list)?;
+    if node_next_ptr == compiler.types.node_null {
+      break;
+    } 
+    debug!("Got map next ptr: {:?}", node_next_ptr);
 
+    list = node_next(compiler, list)?.into_pointer_value();
+    debug!("Got map next node: {:?}", list);
     let cmp =
       compiler.builder.build_is_null(list, "isnulltmp");
     if cmp.eq(&compiler.types.bool_type.const_int(1, false))
@@ -350,7 +348,6 @@ pub fn compile_map<'a>(
       new_list = Some(node_ptr);
     }
     prev_node = Some(node_ptr);
-    i += 1;
   }
   Ok(
     if let Some(new_list) = new_list {
