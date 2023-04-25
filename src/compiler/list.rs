@@ -23,14 +23,14 @@ fn node_alloc<'a>(
 ) -> Result<PointerValue<'a>, String> {
   let node_ptr = compiler
     .builder
-    .build_alloca(compiler.node_type, "node");
+    .build_alloca(compiler.types.node_type, "node");
 
   debug!("Allocated node: {:?}", node_ptr);
 
   let data_ptr = compiler
     .builder
     .build_struct_gep(
-      compiler.node_type,
+      compiler.types.node_type,
       node_ptr,
       0,
       "data",
@@ -43,7 +43,7 @@ fn node_alloc<'a>(
   let next_ptr = compiler
     .builder
     .build_struct_gep(
-      compiler.node_type,
+      compiler.types.node_type,
       node_ptr,
       1,
       "next",
@@ -53,7 +53,7 @@ fn node_alloc<'a>(
     })?;
   compiler
     .builder
-    .build_store(next_ptr, compiler.node_null);
+    .build_store(next_ptr, compiler.types.node_null);
 
   Ok(node_ptr)
 }
@@ -65,7 +65,7 @@ fn node_data<'a>(
   let data_ptr = compiler
     .builder
     .build_struct_gep(
-      compiler.node_type,
+      compiler.types.node_type,
       node_ptr,
       0,
       "load_node_data_ptr",
@@ -77,7 +77,7 @@ fn node_data<'a>(
     compiler
       .builder
       .build_load(
-        compiler.float_type,
+        compiler.types.float_type,
         data_ptr,
         "load_node_data",
       )
@@ -92,7 +92,7 @@ fn node_next_ptr<'a>(
   let next_ptr = compiler
     .builder
     .build_struct_gep(
-      compiler.node_type,
+      compiler.types.node_type,
       node_ptr,
       1,
       "load_node_nxt_ptr",
@@ -109,7 +109,10 @@ fn node_next<'a>(
 ) -> CompileResult<'a> {
   let next_ptr = node_next_ptr(compiler, node_ptr)?;
   let val = compiler.builder.build_load(
-    compiler.node_type.ptr_type(AddressSpace::default()),
+    compiler
+      .types
+      .node_type
+      .ptr_type(AddressSpace::default()),
     next_ptr,
     "loadtmp_cdr",
   );
@@ -132,7 +135,9 @@ pub fn compile_quote<'a>(
   match &list[1] {
     Object::List(l) => {
       if l.is_empty() {
-        return Ok(compiler.node_null.as_any_value_enum());
+        return Ok(
+          compiler.types.node_null.as_any_value_enum(),
+        );
       }
 
       let mut prev = None;
@@ -149,9 +154,10 @@ pub fn compile_quote<'a>(
         if let Some(prev) = prev {
           compiler.builder.build_store(next_ptr, prev);
         } else {
-          compiler
-            .builder
-            .build_store(next_ptr, compiler.node_null);
+          compiler.builder.build_store(
+            next_ptr,
+            compiler.types.node_null,
+          );
         }
         prev = Some(node_ptr);
       }
@@ -203,7 +209,7 @@ pub fn compile_cons<'a>(
 
   let cmp =
     compiler.builder.build_is_null(lhs_val, "isnulltmp");
-  if cmp.eq(&compiler.bool_type.const_int(1, false)) {
+  if cmp.eq(&compiler.types.bool_type.const_int(1, false)) {
     debug!("cons: lhs is null");
     return Ok(rhs_val.as_any_value_enum());
   } else {
@@ -212,7 +218,7 @@ pub fn compile_cons<'a>(
 
   let cmp =
     compiler.builder.build_is_null(rhs_val, "isnulltmp");
-  if cmp.eq(&compiler.bool_type.const_int(1, false)) {
+  if cmp.eq(&compiler.types.bool_type.const_int(1, false)) {
     debug!("cons: rhs is null");
     return Ok(lhs_val.as_any_value_enum());
   } else {
@@ -335,7 +341,8 @@ pub fn compile_map<'a>(
 
     let cmp =
       compiler.builder.build_is_null(list, "isnulltmp");
-    if cmp.eq(&compiler.bool_type.const_int(1, false)) {
+    if cmp.eq(&compiler.types.bool_type.const_int(1, false))
+    {
       break;
     }
 
@@ -349,7 +356,7 @@ pub fn compile_map<'a>(
     if let Some(new_list) = new_list {
       new_list
     } else {
-      compiler.node_null
+      compiler.types.node_null
     }
     .as_any_value_enum(),
   )
@@ -395,9 +402,9 @@ fn compile_if<'a>(
   let then_val = if then_val.is_pointer_value() {
     let ptr_val = then_val.into_pointer_value();
     if ptr_val.is_null() {
-      compiler.float_type.const_float(0.0)
+      compiler.types.float_type.const_float(0.0)
     } else {
-      compiler.float_type.const_float(1.0)
+      compiler.types.float_type.const_float(1.0)
     }
   } else {
     then_val.into_float_value()
@@ -412,9 +419,9 @@ fn compile_if<'a>(
   let else_val = if else_val.is_pointer_value() {
     let ptr_val = else_val.into_pointer_value();
     if ptr_val.is_null() {
-      compiler.float_type.const_float(0.0)
+      compiler.types.float_type.const_float(0.0)
     } else {
-      compiler.float_type.const_float(1.0)
+      compiler.types.float_type.const_float(1.0)
     }
   } else {
     else_val.into_float_value()
@@ -426,7 +433,7 @@ fn compile_if<'a>(
   compiler.builder.position_at_end(merge_bb);
   let phi = compiler
     .builder
-    .build_phi(compiler.float_type, "iftmp");
+    .build_phi(compiler.types.float_type, "iftmp");
   phi.add_incoming(&[
     (&then_val, then_bb),
     (&else_val, else_bb),

@@ -5,7 +5,7 @@ mod lexer;
 mod object;
 mod parser;
 mod sym_table;
-mod test;
+mod interpreter_tests;
 
 use linefeed::{Interface, ReadResult};
 use object::Object;

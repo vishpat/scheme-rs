@@ -45,6 +45,7 @@ pub fn compile_function_prototype<'a>(
         if s.starts_with(LIST_PREFIX) {
           func_param_types.push(
             compiler
+              .types
               .node_type
               .ptr_type(AddressSpace::default())
               .into(),
@@ -52,6 +53,7 @@ pub fn compile_function_prototype<'a>(
         } else if s.starts_with(FUNC_1_PREFIX) {
           func_param_types.push(
             compiler
+              .types
               .func1_obj_type
               .ptr_type(AddressSpace::default())
               .into(),
@@ -59,12 +61,14 @@ pub fn compile_function_prototype<'a>(
         } else if s.starts_with(FUNC_2_PREFIX) {
           func_param_types.push(
             compiler
+              .types
               .func2_obj_type
               .ptr_type(AddressSpace::default())
               .into(),
           );
         } else {
-          func_param_types.push(compiler.float_type.into());
+          func_param_types
+            .push(compiler.types.float_type.into());
         }
       }
       _ => {
@@ -81,6 +85,7 @@ pub fn compile_function_prototype<'a>(
     func_param_types
   );
   let func_type = compiler
+    .types
     .float_type
     .fn_type(func_param_types.as_slice(), false);
   let func = compiler
@@ -132,7 +137,7 @@ pub fn compile_function_definition<'a>(
         .unwrap();
       let ptr = compiler
         .builder
-        .build_alloca(compiler.float_type, &name);
+        .build_alloca(compiler.types.float_type, &name);
       compiler.builder.build_store(ptr, p);
 
       sym_tables.borrow_mut().add_symbol_value(
@@ -157,6 +162,7 @@ pub fn compile_function_definition<'a>(
         ty = DataType::List;
         ptr = compiler.builder.build_alloca(
           compiler
+            .types
             .node_type
             .ptr_type(AddressSpace::default()),
           &name,
@@ -165,6 +171,7 @@ pub fn compile_function_definition<'a>(
         ty = DataType::FuncObj1;
         ptr = compiler.builder.build_alloca(
           compiler
+            .types
             .func1_obj_type
             .ptr_type(AddressSpace::default()),
           &name,
@@ -173,6 +180,7 @@ pub fn compile_function_definition<'a>(
         ty = DataType::FuncObj2;
         ptr = compiler.builder.build_alloca(
           compiler
+            .types
             .func2_obj_type
             .ptr_type(AddressSpace::default()),
           &name,
@@ -224,7 +232,7 @@ pub fn compile_function_definition<'a>(
   sym_tables.borrow_mut().pop_sym_table();
 
   compiler.builder.position_at_end(current_bb);
-  Ok(compiler.float_type.const_zero())
+  Ok(compiler.types.float_type.const_zero())
 }
 
 pub fn compile_function_call<'a>(
@@ -251,9 +259,9 @@ pub fn compile_function_call<'a>(
       let fn_val = arg.into_function_value();
       let arg_count = fn_val.count_params();
       let ty = if arg_count == 1 {
-        compiler.func1_obj_type
+        compiler.types.func1_obj_type
       } else {
-        compiler.func2_obj_type
+        compiler.types.func2_obj_type
       };
       match arg_count {
         1 | 2 => {
@@ -317,6 +325,7 @@ pub fn compile_function_call<'a>(
       DataType::FuncObj1 => {
         let val = compiler.builder.build_load(
           compiler
+            .types
             .func1_obj_type
             .ptr_type(AddressSpace::default()),
           ptr.ptr,
@@ -325,7 +334,7 @@ pub fn compile_function_call<'a>(
         let ptr = compiler
           .builder
           .build_struct_gep(
-            compiler.func1_obj_type,
+            compiler.types.func1_obj_type,
             val.into_pointer_value(),
             0,
             "geptmp",
@@ -334,13 +343,14 @@ pub fn compile_function_call<'a>(
             "Unable to load node for func1_obj".to_string()
           })?;
         let fn_ptr = compiler.builder.build_load(
-          compiler.func1_ptr_type,
+          compiler.types.func1_ptr_type,
           ptr,
           "loadtmp_func1_ptr",
         );
-        let fn_type = compiler
-          .float_type
-          .fn_type(&[compiler.float_type.into()], false);
+        let fn_type = compiler.types.float_type.fn_type(
+          &[compiler.types.float_type.into()],
+          false,
+        );
         compiler.builder.build_indirect_call(
           fn_type,
           fn_ptr.into_pointer_value(),
@@ -351,6 +361,7 @@ pub fn compile_function_call<'a>(
       DataType::FuncObj2 => {
         let val = compiler.builder.build_load(
           compiler
+            .types
             .func2_obj_type
             .ptr_type(AddressSpace::default()),
           ptr.ptr,
@@ -359,7 +370,7 @@ pub fn compile_function_call<'a>(
         let ptr = compiler
           .builder
           .build_struct_gep(
-            compiler.func2_obj_type,
+            compiler.types.func2_obj_type,
             val.into_pointer_value(),
             0,
             "geptmp",
@@ -368,14 +379,14 @@ pub fn compile_function_call<'a>(
             "Unable to load node for func2_obj".to_string()
           })?;
         let fn_ptr = compiler.builder.build_load(
-          compiler.func2_ptr_type,
+          compiler.types.func2_ptr_type,
           ptr,
           "loadtmp_func2_ptr",
         );
-        let fn_type = compiler.float_type.fn_type(
+        let fn_type = compiler.types.float_type.fn_type(
           &[
-            compiler.float_type.into(),
-            compiler.float_type.into(),
+            compiler.types.float_type.into(),
+            compiler.types.float_type.into(),
           ],
           false,
         );

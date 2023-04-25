@@ -68,12 +68,13 @@ pub fn process_symbol<'ctx>(
   let x = match val {
     Some(p) => match p.data_type {
       DataType::Number => compiler.builder.build_load(
-        compiler.float_type,
+        compiler.types.float_type,
         p.ptr,
         sym,
       ),
       DataType::List => compiler.builder.build_load(
         compiler
+          .types
           .node_type
           .ptr_type(AddressSpace::default()),
         p.ptr,
@@ -81,6 +82,7 @@ pub fn process_symbol<'ctx>(
       ),
       DataType::FuncObj1 => compiler.builder.build_load(
         compiler
+          .types
           .func1_obj_type
           .ptr_type(AddressSpace::default()),
         p.ptr,
@@ -88,6 +90,7 @@ pub fn process_symbol<'ctx>(
       ),
       DataType::FuncObj2 => compiler.builder.build_load(
         compiler
+          .types
           .func2_obj_type
           .ptr_type(AddressSpace::default()),
         p.ptr,

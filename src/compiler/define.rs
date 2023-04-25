@@ -49,7 +49,7 @@ pub fn compile_define_obj<'a>(
   match val {
     FloatValue(f) => {
       let global_val = compiler.module.add_global(
-        compiler.float_type,
+        compiler.types.float_type,
         Some(AddressSpace::default()),
         name,
       );
@@ -106,6 +106,7 @@ pub fn compile_define<'a>(
       )?;
       Ok(
         compiler
+          .types
           .float_type
           .const_zero()
           .as_any_value_enum(),
