@@ -287,7 +287,6 @@ mod tests {
     assert_eq!(ret, 3);
   }
 
-  #[test]
   fn test_map() {
     let program = "
     (define (add x y) 

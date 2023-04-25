@@ -1,6 +1,10 @@
 # scheme-rs
 
+<<<<<<< HEAD
+A simple interperter/compiler in Rust using the LLVM toolkit. The interpreter/compiler supports a subset of the scheme programming language. Take a look at the test modules for sample scheme programs that can be run using the interpreter/compiler.
+=======
 A simple interperter/compiler in Rust using the [LLVM](https://llvm.org/) toolkit and the [Inkwell](https://thedan64.github.io/inkwell/inkwell/index.html) crate. The interpreter/compiler supports a subset of the scheme programming language. Take a look at the test modules for sample scheme programs that can be run using the interpreter/compiler.
+>>>>>>> 431ca4be3e2f2949c68786fa9db6d19ad3ff9146
 
 ## Build
 To build the compiler you will need the LLVM toolkit installed. The current version of the compiler uses LLVM 15.
