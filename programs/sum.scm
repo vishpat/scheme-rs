@@ -9,16 +9,4 @@
 (define (sum lst:l) 
         (foldr add 0 lst))
 
-
-(define (map proc:f1 lst:l)
-  (if (null? lst)
-      (quote ()) 
-      (cons (proc (car lst))
-            (map proc (cdr lst)))))
-
-(define (add1 x)
-  (+ x 1))
-
-(define lst (quote (1 2 3 4 5)))
-
-(car (map add1 lst))
+(sum (quote (1 2 3 4)))
