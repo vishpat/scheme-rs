@@ -280,7 +280,13 @@ fn eval_function_definition(
       let mut params = Vec::new();
       for param in list {
         match param {
-          Object::Symbol(s) => params.push(s.clone()),
+          Object::Symbol(s)
+          | Object::ListParam(s)
+          | Object::FuncObj1Param(s)
+          | Object::FuncObj2Param(s) => {
+            params.push(s.clone())
+          }
+
           _ => {
             return Err(format!(
               "Invalid lambda parameter {:?}",
