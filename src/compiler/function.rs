@@ -84,10 +84,19 @@ pub fn compile_function_prototype<'a>(
     "Function parameter types: {:?}",
     func_param_types
   );
-  let func_type = compiler
+  let func_type = 
+  if func_name.starts_with("map") {
+    debug!("Function name starts with map");
+    compiler
     .types
+    .node_type.ptr_type(AddressSpace::default())
+    .fn_type(func_param_types.as_slice(), false)
+  } else {
+    compiler
+      .types
     .float_type
-    .fn_type(func_param_types.as_slice(), false);
+    .fn_type(func_param_types.as_slice(), false)
+  };
   let func = compiler
     .module
     .add_function(func_name, func_type, None);
@@ -205,17 +214,30 @@ pub fn compile_function_definition<'a>(
     }
   }
 
-  let val = match func_body {
+  match func_body {
     Object::List(l) => {
-      compile_list(compiler, l, sym_tables)?
-        .into_float_value()
+      let val = compile_list(compiler, l, sym_tables)?;
+      if val.is_float_value() {
+        debug!("Returning float value for function {:?}: {:?}", func_proto, val);
+        compiler.builder.build_return(Some(&val.into_float_value()));
+      } else if val.is_pointer_value() {
+        debug!("Returning pointer value for function {:?}: {:?}", func_proto, val);
+        compiler.builder.build_return(Some(&val.into_pointer_value()));
+      } else {
+        return Err(format!(
+          "Function definition body must be a list: {:?}",
+          func_body
+        ))
+      }
     }
     Object::Number(n) => {
-      compile_number(compiler, n)?.into_float_value()
+      let val = compile_number(compiler, n)?.into_float_value();
+      compiler.builder.build_return(Some(&val));
     }
     Object::Symbol(s) => {
-      process_symbol(compiler, s, sym_tables)?
-        .into_float_value()
+      let val = process_symbol(compiler, s, sym_tables)?
+        .into_float_value();
+      compiler.builder.build_return(Some(&val));
     }
     _ => {
       return Err(format!(
@@ -225,7 +247,7 @@ pub fn compile_function_definition<'a>(
     }
   };
 
-  compiler.builder.build_return(Some(&val));
+  
 
   func_proto.into_function_value().verify(true);
 
@@ -405,7 +427,6 @@ pub fn compile_function_call<'a>(
       func_call
         .try_as_basic_value()
         .left()
-        .map(|v| v.into_float_value())
         .unwrap()
         .as_any_value_enum(),
     )
@@ -420,7 +441,6 @@ pub fn compile_function_call<'a>(
       func_call
         .try_as_basic_value()
         .left()
-        .map(|v| v.into_float_value())
         .unwrap()
         .as_any_value_enum(),
     )

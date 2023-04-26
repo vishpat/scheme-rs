@@ -396,16 +396,6 @@ fn compile_if<'a>(
   compiler.builder.position_at_end(then_bb);
   let then_val =
     compile_obj(compiler, &list[2], sym_tables)?;
-  let then_val = if then_val.is_pointer_value() {
-    let ptr_val = then_val.into_pointer_value();
-    if ptr_val.is_null() {
-      compiler.types.float_type.const_float(0.0)
-    } else {
-      compiler.types.float_type.const_float(1.0)
-    }
-  } else {
-    then_val.into_float_value()
-  };
 
   compiler.builder.build_unconditional_branch(merge_bb);
   then_bb = compiler.builder.get_insert_block().unwrap();
@@ -413,16 +403,6 @@ fn compile_if<'a>(
   compiler.builder.position_at_end(else_bb);
   let else_val =
     compile_obj(compiler, &list[3], sym_tables)?;
-  let else_val = if else_val.is_pointer_value() {
-    let ptr_val = else_val.into_pointer_value();
-    if ptr_val.is_null() {
-      compiler.types.float_type.const_float(0.0)
-    } else {
-      compiler.types.float_type.const_float(1.0)
-    }
-  } else {
-    else_val.into_float_value()
-  };
 
   compiler.builder.build_unconditional_branch(merge_bb);
   else_bb = compiler.builder.get_insert_block().unwrap();
@@ -438,7 +418,6 @@ fn compile_if<'a>(
   Ok(
     phi
       .as_basic_value()
-      .into_float_value()
       .as_any_value_enum(),
   )
 }
@@ -609,7 +588,6 @@ pub fn compile_list<'a>(
         compile_define(compiler, list, sym_tables)
       }
       "quote" => compile_quote(compiler, list, sym_tables),
-      "map" => compile_map(compiler, list, sym_tables),
       "null?" => compile_null(compiler, list, sym_tables),
       "cons" => compile_cons(compiler, list, sym_tables),
       "car" => compile_car(compiler, list, sym_tables),
