@@ -287,6 +287,7 @@ mod tests {
     assert_eq!(ret, 3);
   }
 
+  #[test]
   fn test_map() {
     let program = "
     (define (add x y) 
@@ -300,14 +301,20 @@ mod tests {
     (define (sum l_lst) 
         (foldr add 0 l_lst))
 
+    (define (map f1_proc l_lst)
+        (if (null? l_lst)
+            (quote ()) 
+            (cons (f1_proc (car l_lst))
+                  (map f1_proc (cdr l_lst)))))
+
     (define (add1 x)
         (+ x 1))
 
     (define lst (quote (1 2 3 4 5)))
 
-    (sum (map add1 lst))
+    (sum (cdr (map add1 lst)))
         ";
     let ret = compile_and_run_program(program).unwrap();
-    assert_eq!(ret, 20);
+    assert_eq!(ret, 18);
   }
 }

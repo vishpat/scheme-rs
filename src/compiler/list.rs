@@ -411,15 +411,26 @@ fn compile_if<'a>(
   let phi = compiler
     .builder
     .build_phi(compiler.types.float_type, "iftmp");
-  phi.add_incoming(&[
-    (&then_val, then_bb),
-    (&else_val, else_bb),
-  ]);
-  Ok(
-    phi
-      .as_basic_value()
-      .as_any_value_enum(),
-  )
+  if then_val.is_float_value() && else_val.is_float_value()
+  {
+    phi.add_incoming(&[
+      (&then_val.into_float_value(), then_bb),
+      (&else_val.into_float_value(), else_bb),
+    ]);
+  } else if then_val.is_pointer_value()
+    && else_val.is_pointer_value()
+  {
+    phi.add_incoming(&[
+      (&then_val.into_pointer_value(), then_bb),
+      (&else_val.into_pointer_value(), else_bb),
+    ]);
+  } else {
+    return Err(format!(
+      "Expected then and else to be float or int, found {:?} and {:?}",
+      then_val, else_val
+    ));
+  }
+  Ok(phi.as_basic_value().as_any_value_enum())
 }
 
 fn compile_binary_expr<'a>(
