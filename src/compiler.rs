@@ -2,14 +2,14 @@ mod define;
 mod function;
 mod list;
 mod number;
+mod object;
 mod symbol;
 mod tests;
-mod object;
 
+use crate::compiler::object::compile_obj;
 use crate::object::*;
 use crate::parser::*;
 use crate::sym_table::*;
-use crate::compiler::object::compile_obj;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -197,4 +197,3 @@ pub fn compile_and_run_program(
   println!("Result: {:?}", ret);
   Ok(ret)
 }
-

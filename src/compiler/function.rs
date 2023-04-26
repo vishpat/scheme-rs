@@ -8,6 +8,7 @@ use crate::object::*;
 use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
+use inkwell::values::BasicValue;
 use inkwell::values::FloatValue;
 use inkwell::AddressSpace;
 use log::debug;
@@ -213,25 +214,17 @@ pub fn compile_function_definition<'a>(
     }
   }
 
+  let val;
   match func_body {
     Object::List(l) => {
-      let val = compile_list(compiler, l, sym_tables)?;
-      if val.is_float_value() {
-        debug!(
-          "Returning float value for function {:?}: {:?}",
-          func_proto, val
-        );
-        compiler
-          .builder
-          .build_return(Some(&val.into_float_value()));
-      } else if val.is_pointer_value() {
-        debug!(
-          "Returning pointer value for function {:?}: {:?}",
-          func_proto, val
-        );
-        compiler
-          .builder
-          .build_return(Some(&val.into_pointer_value()));
+      let list_val = compile_list(compiler, l, sym_tables)?;
+      if list_val.is_float_value() {
+        val =
+          list_val.into_float_value().as_basic_value_enum();
+      } else if list_val.is_pointer_value() {
+        val = list_val
+          .into_pointer_value()
+          .as_basic_value_enum();
       } else {
         return Err(format!(
           "Function definition body must be a list: {:?}",
@@ -240,14 +233,14 @@ pub fn compile_function_definition<'a>(
       }
     }
     Object::Number(n) => {
-      let val =
-        compile_number(compiler, n)?.into_float_value();
-      compiler.builder.build_return(Some(&val));
+      val = compile_number(compiler, n)?
+        .into_float_value()
+        .as_basic_value_enum();
     }
     Object::Symbol(s) => {
-      let val = process_symbol(compiler, s, sym_tables)?
-        .into_float_value();
-      compiler.builder.build_return(Some(&val));
+      val = process_symbol(compiler, s, sym_tables)?
+        .into_float_value()
+        .as_basic_value_enum();
     }
     _ => {
       return Err(format!(
@@ -256,7 +249,7 @@ pub fn compile_function_definition<'a>(
       ))
     }
   };
-
+  compiler.builder.build_return(Some(&val));
   func_proto.into_function_value().verify(true);
 
   sym_tables.borrow_mut().pop_sym_table();

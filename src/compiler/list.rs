@@ -237,7 +237,6 @@ pub fn compile_car<'a>(
   }
 
   let val = compile_obj(compiler, &list[1], sym_tables)?;
-  debug!("Compiling car: rhs : 1 {:?}", val);
 
   let val = match val {
     AnyValueEnum::PointerValue(v) => v,
@@ -249,8 +248,8 @@ pub fn compile_car<'a>(
     }
   };
 
-  debug!("Compiling car: rhs : 2 {:?}", val);
   let val = node_data(compiler, val)?;
+  debug!("car returning float value: {:?}", val);
   Ok(val.as_any_value_enum())
 }
 

@@ -1,16 +1,15 @@
-use crate::compiler::CompileResult;
-use crate::compiler::Compiler;
-use crate::compiler::SymTables;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
 use crate::compiler::symbol::process_symbol;
+use crate::compiler::CompileResult;
+use crate::compiler::Compiler;
+use crate::compiler::SymTables;
 use crate::object::*;
-use inkwell::values::AnyValueEnum;
 use inkwell::values::AnyValue;
-use std::rc::Rc;
-use std::cell::RefCell;
+use inkwell::values::AnyValueEnum;
 use log::debug;
-
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub fn compile_obj<'a>(
   compiler: &'a Compiler,
