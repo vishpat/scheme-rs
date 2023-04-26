@@ -4,17 +4,17 @@ mod list;
 mod number;
 mod symbol;
 mod tests;
-use crate::compiler::list::compile_list;
-use crate::compiler::number::compile_number;
-use crate::compiler::symbol::process_symbol;
+mod object;
+
 use crate::object::*;
 use crate::parser::*;
 use crate::sym_table::*;
+use crate::compiler::object::compile_obj;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
-use inkwell::values::AnyValue;
+
 use inkwell::values::AnyValueEnum;
 use inkwell::values::FunctionValue;
 use inkwell::AddressSpace;
@@ -198,39 +198,3 @@ pub fn compile_and_run_program(
   Ok(ret)
 }
 
-fn compile_obj<'a>(
-  compiler: &'a Compiler,
-  obj: &'a Object,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
-) -> CompileResult<'a> {
-  debug!("Compiling Object: {:?}", obj);
-  let val = match obj {
-    Object::Number(n) => compile_number(compiler, n),
-    Object::List(list) => {
-      compile_list(compiler, list, sym_tables)
-    }
-    Object::Symbol(s) => {
-      let val = process_symbol(compiler, s, sym_tables)?;
-      match val {
-        AnyValueEnum::FloatValue(v) => {
-          Ok(v.as_any_value_enum())
-        }
-        AnyValueEnum::PointerValue(v) => {
-          Ok(v.as_any_value_enum())
-        }
-        AnyValueEnum::FunctionValue(v) => {
-          Ok(v.as_any_value_enum())
-        }
-        AnyValueEnum::IntValue(v) => {
-          Ok(v.as_any_value_enum())
-        }
-        _ => Err(format!(
-          "Cannot compile object for symbol: {:?}",
-          obj
-        )),
-      }
-    }
-    _ => Err(format!("Cannot compile object: {:?}", obj)),
-  };
-  val
-}
