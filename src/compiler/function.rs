@@ -85,7 +85,6 @@ pub fn compile_function_prototype<'a>(
     func_param_types
   );
   let func_type = if func_name.starts_with("map") {
-    debug!("Function name starts with map");
     compiler
       .types
       .node_type
