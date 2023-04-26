@@ -24,8 +24,13 @@ pub fn compile_function_prototype<'a>(
     _ => return Err("Expected list".to_string()),
   };
 
+  let mut list_ret = false;
   let func_name = match &func_proto[0] {
     Object::Symbol(s) => s,
+    Object::ListParam(s) => {
+      list_ret = true;
+      s
+    },
     _ => return Err("Expected symbol".to_string()),
   };
 
@@ -76,7 +81,7 @@ pub fn compile_function_prototype<'a>(
     "Function parameter types: {:?}",
     func_param_types
   );
-  let func_type = if func_name.starts_with("map") {
+  let func_type = if list_ret {
     compiler
       .types
       .node_type
