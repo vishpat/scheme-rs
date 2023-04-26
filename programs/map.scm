@@ -10,7 +10,7 @@
         (foldr add 0 lst))
 
 
-(define (map proc:f1 lst:l)
+(define (map:l proc:f1 lst:l)
   (if (null? lst)
       (quote ()) 
       (cons (proc (car lst))
