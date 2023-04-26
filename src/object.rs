@@ -10,6 +10,9 @@ pub enum Object {
   Bool(bool),
   String(String),
   Symbol(String),
+  FuncObj1Param(String),
+  FuncObj2Param(String),
+  ListParam(String),
   Lambda(
     Vec<String>,
     Vec<Object>,
@@ -26,6 +29,9 @@ impl fmt::Display for Object {
       Object::Bool(b) => write!(f, "{}", b),
       Object::Symbol(s) => write!(f, "{}", s),
       Object::String(s) => write!(f, "{}", s),
+      Object::FuncObj1Param(func) => write!(f, "{}", func),
+      Object::FuncObj2Param(func) => write!(f, "{}", func),
+      Object::ListParam(param) => write!(f, "{}", param),
       Object::Lambda(params, body, _) => {
         write!(f, "Lambda(")?;
         for param in params {

@@ -56,7 +56,30 @@ fn parse_list(
     let t = token.unwrap();
     match t {
       Token::Number(n) => list.push(Object::Number(n)),
-      Token::Symbol(s) => list.push(Object::Symbol(s)),
+      Token::Symbol(s) => {
+        if s.contains(':') {
+          let mut split = s.split(':');
+          let first = split.next().unwrap();
+          let second = split.next().unwrap();
+          match second {
+            "f1" => list.push(Object::FuncObj1Param(
+              first.to_string(),
+            )),
+            "f2" => list.push(Object::FuncObj2Param(
+              first.to_string(),
+            )),
+            "l" => list
+              .push(Object::ListParam(first.to_string())),
+            _ => {
+              return Err(ParseError {
+                err: format!("Invalid type hint: {}", s),
+              })
+            }
+          }
+        } else {
+          list.push(Object::Symbol(s))
+        }
+      }
       Token::String(s) => list.push(Object::String(s)),
       Token::LParen => {
         tokens.push(Token::LParen);

@@ -596,6 +596,12 @@ fn eval_obj(
     Object::Lambda(_params, _body, _fenv) => {
       Ok(Object::Void)
     }
+    Object::ListParam(s)
+    | Object::FuncObj1Param(s)
+    | Object::FuncObj2Param(s) => {
+      let s = s.split(':').collect::<Vec<&str>>()[1];
+      eval_symbol(s, env)
+    }
     Object::Bool(_) => Ok(obj.clone()),
     Object::String(s) => Ok(Object::String(s.clone())),
     Object::Number(n) => Ok(Object::Number(*n)),
