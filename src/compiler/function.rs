@@ -15,10 +15,6 @@ use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-const LIST_PREFIX: &str = "l_";
-const FUNC_1_PREFIX: &str = "f1_";
-const FUNC_2_PREFIX: &str = "f2_";
-
 pub fn compile_function_prototype<'a>(
   compiler: &'a Compiler,
   func_proto: &'a Object,
@@ -42,41 +38,36 @@ pub fn compile_function_prototype<'a>(
   let mut func_param_types = vec![];
   for param in func_params.iter() {
     match param {
-      Object::Symbol(s) => {
-        if s.starts_with(LIST_PREFIX) {
-          func_param_types.push(
-            compiler
-              .types
-              .node_type
-              .ptr_type(AddressSpace::default())
-              .into(),
-          );
-        } else if s.starts_with(FUNC_1_PREFIX) {
-          func_param_types.push(
-            compiler
-              .types
-              .func1_obj_type
-              .ptr_type(AddressSpace::default())
-              .into(),
-          );
-        } else if s.starts_with(FUNC_2_PREFIX) {
-          func_param_types.push(
-            compiler
-              .types
-              .func2_obj_type
-              .ptr_type(AddressSpace::default())
-              .into(),
-          );
-        } else {
-          func_param_types
-            .push(compiler.types.float_type.into());
-        }
+      Object::ListParam(_) => {
+        func_param_types.push(
+          compiler
+            .types
+            .node_type
+            .ptr_type(AddressSpace::default())
+            .into(),
+        );
+      }
+      Object::FuncObj1Param(_) => {
+        func_param_types.push(
+          compiler
+            .types
+            .func1_obj_type
+            .ptr_type(AddressSpace::default())
+            .into(),
+        );
+      }
+      Object::FuncObj2Param(_) => {
+        func_param_types.push(
+          compiler
+            .types
+            .func2_obj_type
+            .ptr_type(AddressSpace::default())
+            .into(),
+        );
       }
       _ => {
-        return Err(format!(
-          "Expected symbol, found: {:?}",
-          param
-        ))
+        func_param_types
+          .push(compiler.types.float_type.into());
       }
     }
   }
@@ -116,6 +107,14 @@ pub fn compile_function_definition<'a>(
   sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
 ) -> Result<FloatValue<'a>, String> {
   debug!("Compiling function prototype: {:?}", func_proto);
+
+  let func_params = match func_proto {
+    Object::List(l) => l,
+    _ => return Err("Expected list".to_string()),
+  };
+
+  let func_params = &func_params[1..];
+
   let func_proto = match compile_function_prototype(
     compiler, func_proto,
   ) {
@@ -133,7 +132,10 @@ pub fn compile_function_definition<'a>(
   compiler.builder.position_at_end(entry);
   sym_tables.borrow_mut().push_new_sym_table();
 
-  for p in func_proto.into_function_value().get_param_iter()
+  for (param_idx, p) in func_proto
+    .into_function_value()
+    .get_param_iter()
+    .enumerate()
   {
     debug!("Processing function parameter {}", p);
     if p.is_float_value() {
@@ -167,38 +169,44 @@ pub fn compile_function_definition<'a>(
 
       let ty;
       let ptr;
-      if name.starts_with(LIST_PREFIX) {
-        ty = DataType::List;
-        ptr = compiler.builder.build_alloca(
-          compiler
-            .types
-            .node_type
-            .ptr_type(AddressSpace::default()),
-          &name,
-        );
-      } else if name.starts_with(FUNC_1_PREFIX) {
-        ty = DataType::FuncObj1;
-        ptr = compiler.builder.build_alloca(
-          compiler
-            .types
-            .func1_obj_type
-            .ptr_type(AddressSpace::default()),
-          &name,
-        );
-      } else if name.starts_with(FUNC_2_PREFIX) {
-        ty = DataType::FuncObj2;
-        ptr = compiler.builder.build_alloca(
-          compiler
-            .types
-            .func2_obj_type
-            .ptr_type(AddressSpace::default()),
-          &name,
-        );
-      } else {
-        return Err(format!(
-          "Unknown function parameter type: {}",
-          name
-        ));
+      let param = &func_params[param_idx];
+      match param {
+        Object::ListParam(_) => {
+          ty = DataType::List;
+          ptr = compiler.builder.build_alloca(
+            compiler
+              .types
+              .node_type
+              .ptr_type(AddressSpace::default()),
+            &name,
+          );
+        }
+        Object::FuncObj1Param(_) => {
+          ty = DataType::FuncObj1;
+          ptr = compiler.builder.build_alloca(
+            compiler
+              .types
+              .func1_obj_type
+              .ptr_type(AddressSpace::default()),
+            &name,
+          );
+        }
+        Object::FuncObj2Param(_) => {
+          ty = DataType::FuncObj2;
+          ptr = compiler.builder.build_alloca(
+            compiler
+              .types
+              .func2_obj_type
+              .ptr_type(AddressSpace::default()),
+            &name,
+          );
+        }
+        _ => {
+          return Err(format!(
+            "Unknown function parameter type: {}",
+            name
+          ));
+        }
       }
 
       compiler.builder.build_store(ptr, p);
