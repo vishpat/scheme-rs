@@ -283,82 +283,6 @@ pub fn compile_cdr<'a>(
   node_next(compiler, val)
 }
 
-pub fn compile_map<'a>(
-  compiler: &'a Compiler,
-  list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
-) -> CompileResult<'a> {
-  if list.len() != 3 {
-    return Err(format!(
-      "Expected 2 argument, found {}",
-      list.len() - 1
-    ));
-  }
-  debug!("Processing map: {:?}", list);
-
-  let func = compile_obj(compiler, &list[1], sym_tables)?;
-  let func = func.into_function_value();
-  if func.count_params() != 1 {
-    return Err(format!(
-      "Expected 1 argument for the map function, found {}",
-      func.count_params()
-    ));
-  }
-
-  let list = compile_obj(compiler, &list[2], sym_tables)?;
-  let mut list = list.into_pointer_value();
-  let mut new_list = None;
-  let mut prev_node = None;
-
-  loop {
-    debug!("Processing map node: {:?}", list);
-    let val = node_data(compiler, list)?;
-    let mapped_val = compiler
-      .builder
-      .build_call(func, &[val.into()], "mapval")
-      .try_as_basic_value()
-      .left()
-      .unwrap();
-
-    debug!("Got map float val: {:?}", val);
-    let node_ptr =
-      node_alloc(compiler, mapped_val.into_float_value())?;
-
-    if let Some(prev_node) = prev_node {
-      let next_ptr = node_next_ptr(compiler, prev_node)?;
-      compiler.builder.build_store(next_ptr, node_ptr);
-    }
-
-    let node_next_ptr = node_next_ptr(compiler, list)?;
-    if node_next_ptr == compiler.types.node_null {
-      break;
-    }
-    debug!("Got map next ptr: {:?}", node_next_ptr);
-
-    list = node_next(compiler, list)?.into_pointer_value();
-    debug!("Got map next node: {:?}", list);
-    let cmp =
-      compiler.builder.build_is_null(list, "isnulltmp");
-    if cmp.eq(&compiler.types.bool_type.const_int(1, false))
-    {
-      break;
-    }
-
-    if new_list.is_none() {
-      new_list = Some(node_ptr);
-    }
-    prev_node = Some(node_ptr);
-  }
-  Ok(
-    if let Some(new_list) = new_list {
-      new_list
-    } else {
-      compiler.types.node_null
-    }
-    .as_any_value_enum(),
-  )
-}
-
 fn compile_if<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
@@ -396,16 +320,6 @@ fn compile_if<'a>(
   compiler.builder.position_at_end(then_bb);
   let then_val =
     compile_obj(compiler, &list[2], sym_tables)?;
-  let then_val = if then_val.is_pointer_value() {
-    let ptr_val = then_val.into_pointer_value();
-    if ptr_val.is_null() {
-      compiler.types.float_type.const_float(0.0)
-    } else {
-      compiler.types.float_type.const_float(1.0)
-    }
-  } else {
-    then_val.into_float_value()
-  };
 
   compiler.builder.build_unconditional_branch(merge_bb);
   then_bb = compiler.builder.get_insert_block().unwrap();
@@ -413,16 +327,6 @@ fn compile_if<'a>(
   compiler.builder.position_at_end(else_bb);
   let else_val =
     compile_obj(compiler, &list[3], sym_tables)?;
-  let else_val = if else_val.is_pointer_value() {
-    let ptr_val = else_val.into_pointer_value();
-    if ptr_val.is_null() {
-      compiler.types.float_type.const_float(0.0)
-    } else {
-      compiler.types.float_type.const_float(1.0)
-    }
-  } else {
-    else_val.into_float_value()
-  };
 
   compiler.builder.build_unconditional_branch(merge_bb);
   else_bb = compiler.builder.get_insert_block().unwrap();
@@ -431,16 +335,26 @@ fn compile_if<'a>(
   let phi = compiler
     .builder
     .build_phi(compiler.types.float_type, "iftmp");
-  phi.add_incoming(&[
-    (&then_val, then_bb),
-    (&else_val, else_bb),
-  ]);
-  Ok(
-    phi
-      .as_basic_value()
-      .into_float_value()
-      .as_any_value_enum(),
-  )
+  if then_val.is_float_value() && else_val.is_float_value()
+  {
+    phi.add_incoming(&[
+      (&then_val.into_float_value(), then_bb),
+      (&else_val.into_float_value(), else_bb),
+    ]);
+  } else if then_val.is_pointer_value()
+    && else_val.is_pointer_value()
+  {
+    phi.add_incoming(&[
+      (&then_val.into_pointer_value(), then_bb),
+      (&else_val.into_pointer_value(), else_bb),
+    ]);
+  } else {
+    return Err(format!(
+      "Expected then and else to be float or int, found {:?} and {:?}",
+      then_val, else_val
+    ));
+  }
+  Ok(phi.as_basic_value().as_any_value_enum())
 }
 
 fn compile_binary_expr<'a>(
@@ -609,7 +523,6 @@ pub fn compile_list<'a>(
         compile_define(compiler, list, sym_tables)
       }
       "quote" => compile_quote(compiler, list, sym_tables),
-      "map" => compile_map(compiler, list, sym_tables),
       "null?" => compile_null(compiler, list, sym_tables),
       "cons" => compile_cons(compiler, list, sym_tables),
       "car" => compile_car(compiler, list, sym_tables),
