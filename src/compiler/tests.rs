@@ -130,8 +130,8 @@ mod tests {
   fn test_list_parameter() {
     let program = "
         (define x (quote (10 2 3)))
-        (define (first l_list)
-                  (car l_list))
+        (define (first list:l)
+                  (car list))
 
         (first x)
         ";
@@ -143,10 +143,10 @@ mod tests {
   fn test_recursive_sum() {
     let program = "
         (define data (quote (1 2 3 4 5)))
-        (define (sum l_list)
-            (if (null? l_list)
+        (define (sum list:l)
+            (if (null? list)
                 0
-                (+ (car l_list) (sum (cdr l_list)))))
+                (+ (car list) (sum (cdr list)))))
         (sum data)
         ";
     let ret = compile_and_run_program(program).unwrap();
@@ -159,13 +159,13 @@ mod tests {
         (define (add x y) 
             (+ x y))
 
-        (define (foldr f2_func end l_lst)
-                (if (null? l_lst)
+        (define (foldr func:f2 end lst:l)
+                (if (null? lst)
                     end
-                    (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+                    (func (car lst) (foldr func end (cdr lst))))) 
 
-        (define (sum l_lst) 
-            (foldr add 0 l_lst))
+        (define (sum lst:l) 
+            (foldr add 0 lst))
 
         (sum (quote (1 2 3 4 5))) 
         ";
@@ -197,13 +197,13 @@ mod tests {
     (define (add x y) 
         (+ x y))
 
-    (define (foldr f2_func end l_lst)
-        (if (null? l_lst)
+    (define (foldr func:f2 end lst:l)
+        (if (null? lst)
             end
-            (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+            (func (car lst) (foldr func end (cdr lst))))) 
 
-    (define (sum l_lst) 
-        (foldr add 0 l_lst))
+    (define (sum lst:l) 
+        (foldr add 0 lst))
  
     (sum (cons 1 (cons 2 (cons 3 (quote ())))))
         ";
@@ -217,13 +217,13 @@ mod tests {
     (define (add x y) 
         (+ x y))
 
-    (define (foldr f2_func end l_lst)
-        (if (null? l_lst)
+    (define (foldr func:f2 end lst:l)
+        (if (null? lst)
             end
-            (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+            (func (car lst) (foldr func end (cdr lst))))) 
 
-    (define (sum l_lst) 
-        (foldr add 0 l_lst))
+    (define (sum lst:l) 
+        (foldr add 0 lst))
  
     (sum (cons 4 (quote (5 6))))
         ";
@@ -246,13 +246,13 @@ mod tests {
       (define (add x y) 
           (+ x y))
 
-      (define (foldr f2_func end l_lst)
-          (if (null? l_lst)
+      (define (foldr func:f2 end lst:l)
+          (if (null? lst)
               end
-              (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+              (func (car lst) (foldr func end (cdr lst))))) 
 
-      (define (sum l_lst) 
-          (foldr add 0 l_lst))
+      (define (sum lst:l) 
+          (foldr add 0 lst))
       (sum (cons 4 (quote (5 6))))
         ";
     let ret = compile_and_run_program(program).unwrap();
@@ -265,13 +265,13 @@ mod tests {
       (define (add x y) 
           (+ x y))
 
-      (define (foldr f2_func end l_lst)
-          (if (null? l_lst)
+      (define (foldr func:f2 end lst:l)
+          (if (null? lst)
               end
-              (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+              (func (car lst) (foldr func end (cdr lst))))) 
 
-      (define (sum l_lst) 
-          (foldr add 0 l_lst))
+      (define (sum lst:l) 
+          (foldr add 0 lst))
       (sum (cons 4 5))
         ";
     let ret = compile_and_run_program(program).unwrap();
@@ -293,19 +293,19 @@ mod tests {
     (define (add x y) 
       (+ x y))
 
-    (define (foldr f2_func end l_lst)
-        (if (null? l_lst)
+    (define (foldr func:f2 end lst:l)
+        (if (null? lst)
             end
-            (f2_func (car l_lst) (foldr f2_func end (cdr l_lst))))) 
+            (func (car lst) (foldr func end (cdr lst))))) 
 
-    (define (sum l_lst) 
-        (foldr add 0 l_lst))
+    (define (sum lst:l) 
+        (foldr add 0 lst))
 
-    (define (map f1_proc l_lst)
-        (if (null? l_lst)
+    (define (map proc:f1 lst:l)
+        (if (null? lst)
             (quote ()) 
-            (cons (f1_proc (car l_lst))
-                  (map f1_proc (cdr l_lst)))))
+            (cons (proc (car lst))
+                  (map proc (cdr lst)))))
 
     (define (add1 x)
         (+ x 1))
