@@ -30,7 +30,7 @@ pub fn compile_function_prototype<'a>(
     Object::ListParam(s) => {
       list_ret = true;
       s
-    },
+    }
     _ => return Err("Expected symbol".to_string()),
   };
 
