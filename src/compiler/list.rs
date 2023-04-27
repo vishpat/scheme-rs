@@ -347,6 +347,13 @@ fn compile_if<'a>(
       (&then_val.into_pointer_value(), then_bb),
       (&else_val.into_pointer_value(), else_bb),
     ]);
+  } else if then_val.is_int_value()
+    && else_val.is_int_value()
+  {
+    phi.add_incoming(&[
+      (&then_val.into_int_value(), then_bb),
+      (&else_val.into_int_value(), else_bb),
+    ]);
   } else {
     return Err(format!(
       "Expected then and else to be float or int, found {:?} and {:?}",
@@ -443,13 +450,17 @@ fn compile_binary_expr<'a>(
       .builder
       .build_float_div(left, right, "divtmp")
       .as_any_value_enum(),
-    ">" | "<" | ">=" | "<=" | "==" | "!=" => {
+    "mod" => compiler
+      .builder
+      .build_float_rem(left, right, "modtmp")
+      .as_any_value_enum(),
+    ">" | "<" | ">=" | "<=" | "=" | "!=" => {
       let op = match binary_op {
         ">" => FloatPredicate::UGT,
         "<" => FloatPredicate::ULT,
         ">=" => FloatPredicate::UGE,
         "<=" => FloatPredicate::ULE,
-        "==" => FloatPredicate::UEQ,
+        "=" => FloatPredicate::UEQ,
         "!=" => FloatPredicate::UNE,
         _ => {
           return Err(format!(
@@ -528,7 +539,7 @@ pub fn compile_list<'a>(
       "cdr" => compile_cdr(compiler, list, sym_tables),
       "if" => compile_if(compiler, list, sym_tables),
       "+" | "-" | "*" | "/" | ">" | "<" | ">=" | "<="
-      | "==" | "!=" => {
+      | "=" | "!=" | "mod" => {
         compile_binary_expr(s, compiler, list, sym_tables)
       }
       _ => {
