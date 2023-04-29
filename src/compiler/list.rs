@@ -40,21 +40,6 @@ fn node_alloc<'a>(
     })?;
   compiler.builder.build_store(data_ptr, val);
 
-  let next_ptr = compiler
-    .builder
-    .build_struct_gep(
-      compiler.types.node_type,
-      node_ptr,
-      1,
-      "next",
-    )
-    .map_err(|_e| {
-      "Unable to build next pointer for struct".to_string()
-    })?;
-  compiler
-    .builder
-    .build_store(next_ptr, compiler.types.node_null);
-
   Ok(node_ptr)
 }
 
