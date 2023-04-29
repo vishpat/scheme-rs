@@ -142,10 +142,10 @@ fn eval_define(
     }
     Object::List(l) => match &l[0] {
       Object::Symbol(s) => s.clone(),
+      Object::ListParam(s) => s.clone(),
       _ => {
         return Err(
-          "Invalid function definition in define"
-            .to_string(),
+          format!("Invalid function definition in define {:?}", l[0])
         )
       }
     },
