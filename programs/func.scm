@@ -7,5 +7,4 @@
 (define (area-of-square x)
           (* x x))
 
-(define r (area-of-square 2))
-(area-of-circle r)
+(area-of-circle (area-of-square 3))
