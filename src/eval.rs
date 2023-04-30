@@ -144,9 +144,10 @@ fn eval_define(
       Object::Symbol(s) => s.clone(),
       Object::ListParam(s) => s.clone(),
       _ => {
-        return Err(
-          format!("Invalid function definition in define {:?}", l[0])
-        )
+        return Err(format!(
+          "Invalid function definition in define {:?}",
+          l[0]
+        ))
       }
     },
     _ => return Err("Invalid define".to_string()),
@@ -374,17 +375,11 @@ fn eval_let(
   Ok(result)
 }
 
-fn eval_function_call(
-  s: &str,
+fn _eval_function_call(
+  func: Object,
   list: &[Object],
   env: &mut Rc<RefCell<Env<Object>>>,
 ) -> Result<Object, String> {
-  let lamdba = env.borrow().get(s);
-  if lamdba.is_none() {
-    return Err(format!("Unbound function: {}", s));
-  }
-
-  let func = lamdba.unwrap();
   match func {
     Object::Lambda(params, body, fenv) => {
       let mut new_env =
@@ -396,8 +391,21 @@ fn eval_function_call(
       }
       eval_obj(&Object::List(body), &mut new_env)
     }
-    _ => Err(format!("Not a lambda: {}", s)),
+    _ => Err(format!("Not a lambda: {:?}", func)),
   }
+}
+
+fn eval_function_call(
+  s: &str,
+  list: &[Object],
+  env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
+  let lamdba = env.borrow().get(s);
+  if lamdba.is_none() {
+    return Err(format!("Unbound function: {}", s));
+  }
+
+  _eval_function_call(lamdba.unwrap(), list, env)
 }
 
 fn eval_symbol(
@@ -479,6 +487,21 @@ fn eval_begin(
     result = eval_obj(obj, env)?;
   }
   Ok(result)
+}
+
+fn eval_apply(
+  list: &[Object],
+  env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
+  let func = eval_obj(&list[1], env)?;
+  let mut params = vec![];
+  params.push(func.clone());
+  for obj in list[2..].iter() {
+    let obj = eval_obj(obj, env)?;
+    params.push(obj);
+  }
+
+  _eval_function_call(func, &params, env)
 }
 
 fn eval_equal(
@@ -582,6 +605,7 @@ fn eval_list(
       "eq?" => eval_equal(list, env),
       "set!" => eval_set(list, env),
       "lambda" => eval_function_definition(list, env),
+      "apply" => eval_apply(list, env),
       "display" => eval_display(list, env),
       "cond" => eval_cond(list, env),
       "let" => eval_let(list, env),
@@ -1108,6 +1132,21 @@ mod tests {
                     (lambda (a) (+ n a))))
             (define add-5 (add-n 5))
             (add-5 10)
+        ";
+
+    let result = eval(program, &mut env).unwrap();
+    assert_eq!(result, Object::Number(15.0));
+  }
+
+  #[test]
+  fn test_apply() {
+    let mut env = Rc::new(RefCell::new(Env::new()));
+    let program = "
+            (define add-n 
+                (lambda (n) 
+                    (lambda (a) (+ n a))))
+            (define add-5 (add-n 5))
+            (apply add-5 10)
         ";
 
     let result = eval(program, &mut env).unwrap();
