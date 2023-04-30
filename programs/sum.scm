@@ -1,3 +1,6 @@
+;
+; Recursively sum a list of numbers
+
 (define (add x y) 
        (+ x y))
 
