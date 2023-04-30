@@ -174,7 +174,7 @@ pub fn compile_and_run_program(
   }
 
   compiler.fpm.run_on(&main_func);
-  compiler.module.print_to_stderr();
+  //compiler.module.print_to_stderr();
   compiler
     .module
     .print_to_file(Path::new("main.ll"))
@@ -194,6 +194,6 @@ pub fn compile_and_run_program(
     execution_engine.run_function_as_main(main, &[])
   };
 
-  println!("Result: {:?}", ret);
+  println!("{:?}", ret);
   Ok(ret)
 }

@@ -527,6 +527,11 @@ pub fn compile_list<'a>(
       | "=" | "!=" | "mod" => {
         compile_binary_expr(s, compiler, list, sym_tables)
       }
+      "apply" => compile_function_call(
+        compiler,
+        &list[1..],
+        sym_tables,
+      ),
       _ => {
         compile_function_call(compiler, list, sym_tables)
       }
