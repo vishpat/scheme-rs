@@ -1152,4 +1152,17 @@ mod tests {
     let result = eval(program, &mut env).unwrap();
     assert_eq!(result, Object::Number(15.0));
   }
+
+  #[test]
+  fn test_apply_2() {
+    let mut env = Rc::new(RefCell::new(Env::new()));
+    let program = "
+            (define add 
+                (lambda (x y) (+ x y)))
+            (apply add 10 5)
+        ";
+
+    let result = eval(program, &mut env).unwrap();
+    assert_eq!(result, Object::Number(15.0));
+  }
 }
