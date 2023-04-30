@@ -6,10 +6,6 @@
             end
             (func (car lst) (foldr func end (cdr lst))))) 
 
-(define (sum lst:l) 
-        (foldr add 0 lst))
-
-
 (define (map:l proc:f1 lst:l)
   (if (null? lst)
       (quote ()) 
@@ -21,4 +17,4 @@
 
 (define lstx (quote (1 2 3 4 5)))
 
-(car (map add1 lstx))
+(foldr add 0 (map add1 lstx))
