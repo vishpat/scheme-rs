@@ -313,4 +313,36 @@ mod tests {
     let ret = compile_and_run_program(program).unwrap();
     assert_eq!(ret, 20);
   }
+
+  #[test]
+  fn test_apply_1() {
+    let program = "
+    (define (add x y) 
+      (+ x y))
+
+    (apply add 15 5)
+        ";
+    let ret = compile_and_run_program(program).unwrap();
+    assert_eq!(ret, 20);
+  }
+
+  #[test]
+  fn test_apply_2() {
+    let program = "
+    (define (add x y) 
+          (+ x y))
+
+    (define (foldr func:f2 end lst:l)
+        (if (null? lst)
+            end
+            (func (car lst) (foldr func end (cdr lst))))) 
+
+    (define (sum lst:l) 
+        (foldr add 0 lst)) 
+
+    (apply sum (quote (1 2 3 4 5))) 
+    ";
+    let ret = compile_and_run_program(program).unwrap();
+    assert_eq!(ret, 15);
+  }
 }
