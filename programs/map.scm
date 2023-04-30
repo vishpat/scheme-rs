@@ -1,11 +1,15 @@
+; Add 1 to each element of a list and then sum it
+
 (define (add x y) 
        (+ x y))
 
+; Reduce function for lists
 (define (foldr func:f2 end lst:l)
         (if (null? lst)
             end
             (func (car lst) (foldr func end (cdr lst))))) 
 
+; Map function for lists
 (define (map:l proc:f1 lst:l)
   (if (null? lst)
       (quote ()) 

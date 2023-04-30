@@ -48,6 +48,11 @@ pub fn tokenize(
   while !chars.is_empty() {
     let mut ch = chars.remove(0);
     match ch {
+      ';' => {
+        while !chars.is_empty() && chars[0] != '\n' {
+          chars.remove(0);
+        }
+      }
       '(' => tokens.push(Token::LParen),
       ')' => tokens.push(Token::RParen),
       '"' => {
