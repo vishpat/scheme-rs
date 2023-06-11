@@ -501,6 +501,48 @@ pub fn compile_null<'a>(
   return Ok(cmp.as_any_value_enum());
 }
 
+fn compile_print<'a>(
+  compiler: &'a Compiler,
+  list: &'a Vec<Object>,
+  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+) -> CompileResult<'a> {
+  if list.len() != 2 {
+    return Err(format!(
+      "Expected 1 argument, found {:?}",
+      list
+    ));
+  }
+
+  let val = compile_obj(compiler, &list[1], sym_tables)?;
+  debug!("Compiling print: rhs {:?}", val);
+
+  let val = match val {
+    AnyValueEnum::FloatValue(v) => v,
+    _ => {
+      return Err(format!(
+        "Cannot compile print expected float, found: {:?}",
+        list[1]
+      ))
+    }
+  };
+
+  let format_str = unsafe {
+    compiler.builder.build_global_string("%f", "format_str")
+  };
+  compiler
+    .builder
+    .build_call(
+      compiler.printf_func,
+      &[format_str.as_pointer_value().into(), val.into()],
+      "printf",
+    )
+    .try_as_basic_value()
+    .left()
+    .unwrap();
+
+  Ok(val.as_any_value_enum())
+}
+
 pub fn compile_list<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
@@ -532,6 +574,7 @@ pub fn compile_list<'a>(
         &list[1..],
         sym_tables,
       ),
+      "print" => compile_print(compiler, list, sym_tables),
       _ => {
         compile_function_call(compiler, list, sym_tables)
       }

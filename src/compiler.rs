@@ -46,6 +46,7 @@ pub struct Compiler<'ctx> {
     inkwell::passes::PassManager<FunctionValue<'ctx>>,
   pub types: LLVMTypes<'ctx>,
   pub main_func: FunctionValue<'ctx>,
+  pub printf_func: FunctionValue<'ctx>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -95,6 +96,18 @@ impl<'ctx> Compiler<'ctx> {
       None,
     );
 
+    let i32_type = context.i32_type();
+    let printf_func: FunctionValue = module.add_function(
+      "printf",
+      i32_type.fn_type(
+        &[i32_type
+          .ptr_type(AddressSpace::default())
+          .into()],
+        true,
+      ),
+      None,
+    );
+
     let types = LLVMTypes {
       int_type: context.i64_type(),
       float_type: context.f64_type(),
@@ -114,6 +127,7 @@ impl<'ctx> Compiler<'ctx> {
       fpm,
       types,
       main_func,
+      printf_func,
     }
   }
 }
