@@ -21,4 +21,4 @@
 
 (define lstx (quote (1 2 3 4 5)))
 
-(foldr add 0 (map add1 lstx))
+(print (foldr add 0 (map add1 lstx)))

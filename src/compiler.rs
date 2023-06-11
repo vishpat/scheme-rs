@@ -208,6 +208,5 @@ pub fn compile_and_run_program(
     execution_engine.run_function_as_main(main, &[])
   };
 
-  println!("{:?}", ret);
   Ok(ret)
 }
