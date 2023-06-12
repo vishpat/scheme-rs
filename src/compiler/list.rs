@@ -1,5 +1,5 @@
 use crate::compiler::compile_obj;
-use crate::compiler::define::compile_define;
+use crate::compiler::define::{compile_define, compile_let};
 use crate::compiler::function::compile_function_call;
 use crate::compiler::number::compile_number;
 use crate::compiler::symbol::process_symbol;
@@ -559,6 +559,7 @@ pub fn compile_list<'a>(
       "define" => {
         compile_define(compiler, list, sym_tables)
       }
+      "let" => compile_let(compiler, list, sym_tables),
       "quote" => compile_quote(compiler, list, sym_tables),
       "null?" => compile_null(compiler, list, sym_tables),
       "cons" => compile_cons(compiler, list, sym_tables),
