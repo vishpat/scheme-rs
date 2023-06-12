@@ -474,15 +474,7 @@ pub fn compile_let<'a>(
       );
     }
   };
-  let current_bb =
-    compiler.builder.get_insert_block().unwrap();
-
-  let entry = compiler.context.append_basic_block(
-    compiler.module.get_last_function().unwrap(),
-    "entry",
-  );
-  compiler.builder.position_at_end(entry);
-
+  
   sym_tables.borrow_mut().push_new_sym_table();
   for pair in pairs {
     let pair = match pair {
@@ -529,21 +521,11 @@ pub fn compile_let<'a>(
   );
 
   for item in list.iter().skip(2) {
+    debug!("Processing item {:?}", item);
     result = compile_obj(compiler, item, sym_tables)?;
   }
-
+  
   sym_tables.borrow_mut().pop_sym_table();
-
-  match result {
-    AnyValueEnum::FloatValue(f) => {
-      compiler.builder.build_return(Some(&f));
-    }
-    _ => {
-      compiler.builder.build_return(None);
-    }
-  }
-
-  compiler.builder.position_at_end(current_bb);
 
   Ok(result)
 }
