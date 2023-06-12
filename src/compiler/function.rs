@@ -460,3 +460,90 @@ pub fn compile_function_call<'a>(
     )
   }
 }
+
+pub fn compile_let<'a>(
+  compiler: &'a Compiler,
+  list: &'a Vec<Object>,
+  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+) -> CompileResult<'a> {
+  let pairs = match list.get(1) {
+    Some(Object::List(pairs)) => pairs,
+    _ => {
+      return Err(
+        "Let: Expected list of pairs".to_string(),
+      );
+    }
+  };
+  let current_bb =
+    compiler.builder.get_insert_block().unwrap();
+
+  let entry = compiler.context.append_basic_block(
+    compiler.module.get_last_function().unwrap(),
+    "entry",
+  );
+  compiler.builder.position_at_end(entry);
+
+  sym_tables.borrow_mut().push_new_sym_table();
+  for pair in pairs {
+    let pair = match pair {
+      Object::List(pair) => pair,
+      _ => {
+        return Err(
+          "Let: Expected list of pairs".to_string(),
+        );
+      }
+    };
+    let key = match pair.get(0) {
+      Some(Object::Symbol(key)) => key,
+      _ => {
+        return Err(
+          "Let: Expected symbol as key".to_string(),
+        );
+      }
+    };
+    let val = match pair.get(1) {
+      Some(val) => val,
+      _ => {
+        return Err("Let: Expected value".to_string());
+      }
+    };
+    let val = compile_obj(compiler, val, sym_tables)?;
+    let ptr = compiler
+      .builder
+      .build_alloca(compiler.types.float_type, key);
+    compiler
+      .builder
+      .build_store(ptr, val.into_float_value());
+
+    sym_tables.borrow_mut().add_symbol_value(
+      key,
+      Pointer {
+        ptr,
+        data_type: DataType::Number,
+      },
+    );
+  }
+
+  let mut result = AnyValueEnum::FloatValue(
+    compiler.context.f64_type().const_float(0.0),
+  );
+
+  for item in list.iter().skip(2) {
+    result = compile_obj(compiler, item, sym_tables)?;
+  }
+
+  sym_tables.borrow_mut().pop_sym_table();
+
+  match result {
+    AnyValueEnum::FloatValue(f) => {
+      compiler.builder.build_return(Some(&f));
+    }
+    _ => {
+      compiler.builder.build_return(None);
+    }
+  }
+
+  compiler.builder.position_at_end(current_bb);
+
+  Ok(result)
+}
