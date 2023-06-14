@@ -1,4 +1,6 @@
-use crate::env::*;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 use inkwell::values::PointerValue;
 use log::debug;
 
@@ -16,23 +18,17 @@ pub struct Pointer<'ctx> {
   pub data_type: DataType,
 }
 
-pub struct SymTables<'ctx> {
-  pub tables: Vec<Env<Pointer<'ctx>>>,
+pub struct SymTable<'ctx> {
+  parent: Option<Rc<RefCell<SymTable<'ctx>>>>,
+  symbols: HashMap<String, Pointer<'ctx>>,
 }
 
-impl<'ctx> SymTables<'ctx> {
-  pub fn new() -> Self {
+impl<'ctx> SymTable<'ctx> {
+  pub fn new(parent: Option<Rc<RefCell<SymTable<'ctx>>>>) -> Self {
     Self {
-      tables: vec![Env::new()],
+      parent: parent,
+      symbols: HashMap::new(),
     }
-  }
-
-  pub fn push_new_sym_table(&mut self) {
-    self.tables.push(Env::new());
-  }
-
-  pub fn pop_sym_table(&mut self) {
-    self.tables.pop();
   }
 
   pub fn add_symbol_value(
@@ -41,21 +37,19 @@ impl<'ctx> SymTables<'ctx> {
     ptr: Pointer<'ctx>,
   ) {
     debug!("Adding symbol {} val: {:?}", name, ptr);
-    self.tables.last_mut().unwrap().set(name, ptr);
+    self.symbols.insert(name.to_string(), ptr);
   }
 
   pub fn get_symbol_value(
     &self,
     name: &str,
   ) -> Option<Pointer<'ctx>> {
-    let env = self.tables.last().unwrap();
-    if let Some(val) = env.get(name) {
-      debug!(
-        "Got symbol {} val: {:?} from sym table",
-        name, val
-      );
-      return Some(val.clone());
-    }
+    while let Some(table) = self.parent.as_ref() {
+      if let Some(ptr) = table.borrow().symbols.get(name) {
+        debug!("Found symbol {} val: {:?}", name, ptr);
+        return Some(ptr.clone());
+      }
+    } 
 
     None
   }

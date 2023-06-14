@@ -20,9 +20,7 @@ use inkwell::values::FunctionValue;
 use inkwell::AddressSpace;
 use inkwell::OptimizationLevel;
 use log::debug;
-use std::cell::RefCell;
 use std::path::Path;
-use std::rc::Rc;
 
 const MAIN_FUNC_NAME: &str = "main";
 
@@ -143,8 +141,7 @@ pub fn compile_and_run_program(
   });
   let context = Context::create();
   let compiler = Compiler::new(&context);
-  let mut sym_tables =
-    Rc::new(RefCell::new(SymTables::new()));
+  let mut sym_tables = SymTable::new(None);
   let mut obj_vec = vec![];
   let main_func = compiler.main_func;
 
