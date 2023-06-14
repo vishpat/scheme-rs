@@ -3,7 +3,7 @@ use crate::compiler::number::compile_number;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
-use crate::compiler::SymTables;
+use crate::compiler::Env;
 use crate::object::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
@@ -14,16 +14,16 @@ use std::rc::Rc;
 pub fn compile_obj<'a>(
   compiler: &'a Compiler,
   obj: &'a Object,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   debug!("Compiling Object: {:?}", obj);
   let val = match obj {
     Object::Number(n) => compile_number(compiler, n),
     Object::List(list) => {
-      compile_list(compiler, list, sym_tables)
+      compile_list(compiler, list, env)
     }
     Object::Symbol(s) => {
-      let val = process_symbol(compiler, s, sym_tables)?;
+      let val = process_symbol(compiler, s, env)?;
       match val {
         AnyValueEnum::FloatValue(v) => {
           Ok(v.as_any_value_enum())

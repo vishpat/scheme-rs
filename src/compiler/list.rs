@@ -4,11 +4,11 @@ use crate::compiler::function::{
   compile_function_call, compile_let,
 };
 use crate::compiler::number::compile_number;
+use crate::compiler::env::Env;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
-use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::FloatValue;
@@ -109,7 +109,7 @@ fn node_next<'a>(
 pub fn compile_quote<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -129,8 +129,7 @@ pub fn compile_quote<'a>(
 
       let mut prev = compiler.types.node_null;
       for obj in l.iter().rev() {
-        let ir_obj =
-          compile_obj(compiler, obj, sym_tables)?;
+        let ir_obj = compile_obj(compiler, obj, env)?;
         let node_ptr =
           node_alloc(compiler, ir_obj.into_float_value())?;
 
@@ -150,7 +149,7 @@ pub fn compile_quote<'a>(
 pub fn compile_cons<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(
@@ -160,7 +159,7 @@ pub fn compile_cons<'a>(
   }
 
   debug!("Compiling cons: {:?}", list);
-  let lhs = compile_obj(compiler, &list[1], sym_tables)?;
+  let lhs = compile_obj(compiler, &list[1], env)?;
   let lhs_val = match lhs {
         AnyValueEnum::FloatValue(v) => {
             node_alloc(compiler, v)?
@@ -173,7 +172,7 @@ pub fn compile_cons<'a>(
         }
   };
 
-  let rhs = compile_obj(compiler, &list[2], sym_tables)?;
+  let rhs = compile_obj(compiler, &list[2], env)?;
   let rhs_val = match rhs {
         AnyValueEnum::PointerValue(v) => v,
         AnyValueEnum::FloatValue(v) => {
@@ -214,7 +213,7 @@ pub fn compile_cons<'a>(
 pub fn compile_car<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -223,7 +222,7 @@ pub fn compile_car<'a>(
     ));
   }
 
-  let val = compile_obj(compiler, &list[1], sym_tables)?;
+  let val = compile_obj(compiler, &list[1], env)?;
 
   let val = match val {
     AnyValueEnum::PointerValue(v) => v,
@@ -243,7 +242,7 @@ pub fn compile_car<'a>(
 pub fn compile_cdr<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -252,7 +251,7 @@ pub fn compile_cdr<'a>(
     ));
   }
 
-  let val = compile_obj(compiler, &list[1], sym_tables)?;
+  let val = compile_obj(compiler, &list[1], env)?;
   debug!("Compiling cdr: rhs : 1 {:?}", val);
 
   let val = match val {
@@ -272,7 +271,7 @@ pub fn compile_cdr<'a>(
 fn compile_if<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 4 {
     return Err(format!(
@@ -280,8 +279,7 @@ fn compile_if<'a>(
       list.len() - 1
     ));
   }
-  let cond_ir =
-    compile_obj(compiler, &list[1], sym_tables)?;
+  let cond_ir = compile_obj(compiler, &list[1], env)?;
   let cond_bool = cond_ir.into_int_value();
 
   let curr_func = compiler
@@ -305,14 +303,14 @@ fn compile_if<'a>(
 
   compiler.builder.position_at_end(then_bb);
   let then_val =
-    compile_obj(compiler, &list[2], sym_tables)?;
+    compile_obj(compiler, &list[2], env)?;
 
   compiler.builder.build_unconditional_branch(merge_bb);
   then_bb = compiler.builder.get_insert_block().unwrap();
 
   compiler.builder.position_at_end(else_bb);
   let else_val =
-    compile_obj(compiler, &list[3], sym_tables)?;
+    compile_obj(compiler, &list[3], env)?;
 
   compiler.builder.build_unconditional_branch(merge_bb);
   else_bb = compiler.builder.get_insert_block().unwrap();
@@ -354,7 +352,7 @@ fn compile_binary_expr<'a>(
   binary_op: &str,
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(
@@ -366,7 +364,7 @@ fn compile_binary_expr<'a>(
   let left = match &list[1] {
     Object::Number(n) => compile_number(compiler, n)?,
     Object::Symbol(s) => {
-      let val = process_symbol(compiler, s, sym_tables)?;
+      let val = process_symbol(compiler, s, env)?;
       match val {
         AnyValueEnum::FloatValue(v) => {
           v.as_any_value_enum()
@@ -380,7 +378,7 @@ fn compile_binary_expr<'a>(
       }
     }
     Object::List(l) => {
-      compile_list(compiler, l, sym_tables)?
+      compile_list(compiler, l, env)?
     }
     _ => {
       return Err(format!(
@@ -393,7 +391,7 @@ fn compile_binary_expr<'a>(
   let right = match &list[2] {
     Object::Number(n) => compile_number(compiler, n)?,
     Object::Symbol(s) => {
-      let val = process_symbol(compiler, s, sym_tables)?;
+      let val = process_symbol(compiler, s, env)?;
       match val {
         AnyValueEnum::FloatValue(v) => {
           v.as_any_value_enum()
@@ -407,7 +405,7 @@ fn compile_binary_expr<'a>(
       }
     }
     Object::List(l) => {
-      compile_list(compiler, l, sym_tables)?
+      compile_list(compiler, l, env)?
     }
     _ => {
       return Err(format!(
@@ -475,7 +473,7 @@ fn compile_binary_expr<'a>(
 pub fn compile_null<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -484,7 +482,7 @@ pub fn compile_null<'a>(
     ));
   }
 
-  let val = compile_obj(compiler, &list[1], sym_tables)?;
+  let val = compile_obj(compiler, &list[1], env)?;
   debug!("Compiling null?: rhs {:?}", val);
 
   let val = match val {
@@ -506,7 +504,7 @@ pub fn compile_null<'a>(
 fn compile_print<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -515,7 +513,7 @@ fn compile_print<'a>(
     ));
   }
 
-  let val = compile_obj(compiler, &list[1], sym_tables)?;
+  let val = compile_obj(compiler, &list[1], env)?;
   debug!("Compiling print: rhs {:?}", val);
 
   let val = match val {
@@ -548,7 +546,7 @@ fn compile_print<'a>(
 pub fn compile_list<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  envs: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.is_empty() {
     return Err("Cannot compile empty list".to_string());
@@ -559,27 +557,27 @@ pub fn compile_list<'a>(
   match &list[0] {
     Object::Symbol(s) => match s.as_str() {
       "define" => {
-        compile_define(compiler, list, sym_tables)
+        compile_define(compiler, list, envs)
       }
-      "let" => compile_let(compiler, list, sym_tables),
-      "quote" => compile_quote(compiler, list, sym_tables),
-      "null?" => compile_null(compiler, list, sym_tables),
-      "cons" => compile_cons(compiler, list, sym_tables),
-      "car" => compile_car(compiler, list, sym_tables),
-      "cdr" => compile_cdr(compiler, list, sym_tables),
-      "if" => compile_if(compiler, list, sym_tables),
+      "let" => compile_let(compiler, list, envs),
+      "quote" => compile_quote(compiler, list, envs),
+      "null?" => compile_null(compiler, list, envs),
+      "cons" => compile_cons(compiler, list, envs),
+      "car" => compile_car(compiler, list, envs),
+      "cdr" => compile_cdr(compiler, list, envs),
+      "if" => compile_if(compiler, list, envs),
       "+" | "-" | "*" | "/" | ">" | "<" | ">=" | "<="
       | "=" | "!=" | "mod" => {
-        compile_binary_expr(s, compiler, list, sym_tables)
+        compile_binary_expr(s, compiler, list, envs)
       }
       "apply" => compile_function_call(
         compiler,
         &list[1..],
-        sym_tables,
+        envs,
       ),
-      "print" => compile_print(compiler, list, sym_tables),
+      "print" => compile_print(compiler, list, envs),
       _ => {
-        compile_function_call(compiler, list, sym_tables)
+        compile_function_call(compiler, list, envs)
       }
     },
     _ => Err(format!("Cannot compile list 4.: {:?}", list)),

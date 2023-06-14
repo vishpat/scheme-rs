@@ -1,11 +1,11 @@
 use crate::compiler::compile_obj;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
+use crate::compiler::env::*;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
-use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::BasicValue;
@@ -109,7 +109,7 @@ pub fn compile_function_definition<'a>(
   compiler: &'a Compiler,
   func_proto: &'a Object,
   func_body: &'a Object,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> Result<FloatValue<'a>, String> {
   debug!("Compiling function prototype: {:?}", func_proto);
 
@@ -135,7 +135,9 @@ pub fn compile_function_definition<'a>(
     "entry",
   );
   compiler.builder.position_at_end(entry);
-  sym_tables.borrow_mut().push_new_sym_table();
+  let mut env = Rc::new(RefCell::new(Env::new(
+    Some(env.clone()),
+  )));
 
   for (param_idx, p) in func_proto
     .into_function_value()
@@ -156,7 +158,7 @@ pub fn compile_function_definition<'a>(
         .build_alloca(compiler.types.float_type, &name);
       compiler.builder.build_store(ptr, p);
 
-      sym_tables.borrow_mut().add_symbol_value(
+      env.borrow_mut().add_symbol_value(
         &name,
         Pointer {
           ptr,
@@ -215,7 +217,7 @@ pub fn compile_function_definition<'a>(
       }
 
       compiler.builder.build_store(ptr, p);
-      sym_tables.borrow_mut().add_symbol_value(
+      env.borrow_mut().add_symbol_value(
         name.as_str(),
         Pointer { ptr, data_type: ty },
       );
@@ -230,7 +232,8 @@ pub fn compile_function_definition<'a>(
   let val;
   match func_body {
     Object::List(l) => {
-      let list_val = compile_list(compiler, l, sym_tables)?;
+      let list_val =
+        compile_list(compiler, l, &mut env)?;
       if list_val.is_float_value() {
         val =
           list_val.into_float_value().as_basic_value_enum();
@@ -251,7 +254,7 @@ pub fn compile_function_definition<'a>(
         .as_basic_value_enum();
     }
     Object::Symbol(s) => {
-      val = process_symbol(compiler, s, sym_tables)?
+      val = process_symbol(compiler, s, &mut env)?
         .into_float_value()
         .as_basic_value_enum();
     }
@@ -265,8 +268,6 @@ pub fn compile_function_definition<'a>(
   compiler.builder.build_return(Some(&val));
   func_proto.into_function_value().verify(true);
 
-  sym_tables.borrow_mut().pop_sym_table();
-
   compiler.builder.position_at_end(current_bb);
   Ok(compiler.types.float_type.const_zero())
 }
@@ -274,7 +275,7 @@ pub fn compile_function_definition<'a>(
 pub fn compile_function_call<'a>(
   compiler: &'a Compiler,
   list: &'a [Object],
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  envs: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   let func_name = match &list[0] {
     Object::Symbol(s) => s,
@@ -282,7 +283,7 @@ pub fn compile_function_call<'a>(
   };
   let processed_args = list[1..]
     .iter()
-    .map(|a| compile_obj(compiler, a, sym_tables))
+    .map(|a| compile_obj(compiler, a, envs))
     .collect::<Result<Vec<AnyValueEnum>, String>>()?;
 
   let mut compiled_args = vec![];
@@ -339,7 +340,7 @@ pub fn compile_function_call<'a>(
   if func.is_none() {
     debug!("Function {} not found, so checking for function object", func_name);
     let func_ptr =
-      sym_tables.borrow_mut().get_symbol_value(func_name);
+      envs.borrow_mut().get_symbol_value(func_name);
 
     if func_ptr.is_none() {
       return Err(format!(
@@ -464,7 +465,7 @@ pub fn compile_function_call<'a>(
 pub fn compile_let<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   let pairs = match list.get(1) {
     Some(Object::List(pairs)) => pairs,
@@ -474,8 +475,8 @@ pub fn compile_let<'a>(
       );
     }
   };
-  
-  sym_tables.borrow_mut().push_new_sym_table();
+
+  let mut env = env.clone();
   for pair in pairs {
     let pair = match pair {
       Object::List(pair) => pair,
@@ -499,7 +500,7 @@ pub fn compile_let<'a>(
         return Err("Let: Expected value".to_string());
       }
     };
-    let val = compile_obj(compiler, val, sym_tables)?;
+    let val = compile_obj(compiler, val, &mut env)?;
     let ptr = compiler
       .builder
       .build_alloca(compiler.types.float_type, key);
@@ -507,7 +508,7 @@ pub fn compile_let<'a>(
       .builder
       .build_store(ptr, val.into_float_value());
 
-    sym_tables.borrow_mut().add_symbol_value(
+    env.borrow_mut().add_symbol_value(
       key,
       Pointer {
         ptr,
@@ -522,10 +523,8 @@ pub fn compile_let<'a>(
 
   for item in list.iter().skip(2) {
     debug!("Processing item {:?}", item);
-    result = compile_obj(compiler, item, sym_tables)?;
+    result = compile_obj(compiler, item, &mut env)?;
   }
-  
-  sym_tables.borrow_mut().pop_sym_table();
 
   Ok(result)
 }

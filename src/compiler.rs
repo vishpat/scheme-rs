@@ -3,13 +3,14 @@ mod function;
 mod list;
 mod number;
 mod object;
+mod env;
 mod symbol;
 mod tests;
 
 use crate::compiler::object::compile_obj;
+use crate::compiler::env::Env;
 use crate::object::*;
 use crate::parser::*;
-use crate::sym_table::*;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -144,7 +145,7 @@ pub fn compile_and_run_program(
   let context = Context::create();
   let compiler = Compiler::new(&context);
   let mut sym_tables =
-    Rc::new(RefCell::new(SymTables::new()));
+    Rc::new(RefCell::new(Env::new(None)));
   let mut obj_vec = vec![];
   let main_func = compiler.main_func;
 

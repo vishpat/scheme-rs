@@ -1,6 +1,6 @@
+use crate::compiler::env::*;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
-use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::AddressSpace;
@@ -27,7 +27,7 @@ fn check_global_variable<'ctx>(
 pub fn process_symbol<'ctx>(
   compiler: &'ctx Compiler,
   sym: &str,
-  sym_tables: &mut Rc<RefCell<SymTables<'ctx>>>,
+  env: &mut Rc<RefCell<Env<'ctx>>>,
 ) -> CompileResult<'ctx> {
   match sym {
     "#t" => {
@@ -62,7 +62,7 @@ pub fn process_symbol<'ctx>(
     return Ok(f.as_any_value_enum());
   }
 
-  let val = sym_tables.borrow().get_symbol_value(sym);
+  let val = env.borrow().get_symbol_value(sym);
 
   debug!("Processing symbol {} val: {:?}", sym, val);
   let x = match val {

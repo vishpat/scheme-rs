@@ -1,10 +1,10 @@
 use crate::compiler::function::compile_function_definition;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
+use crate::compiler::env::*;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
-use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum::{
   FloatValue, PointerValue,
@@ -17,7 +17,7 @@ use std::rc::Rc;
 pub fn compile_define_obj<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(
@@ -36,7 +36,7 @@ pub fn compile_define_obj<'a>(
     Object::Number(n) => compile_number(compiler, n),
     Object::List(l) => {
       println!("Processing list: {:?}", l);
-      compile_list(compiler, l, sym_tables)
+      compile_list(compiler, l, env)
     }
     _ => {
       return Err(format!(
@@ -65,7 +65,7 @@ pub fn compile_define_obj<'a>(
         p.get_type(),
         ptr
       );
-      sym_tables.borrow_mut().add_symbol_value(
+      env.borrow_mut().add_symbol_value(
         name,
         Pointer {
           ptr,
@@ -87,7 +87,7 @@ pub fn compile_define_obj<'a>(
 pub fn compile_define<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTables<'a>>>,
+  env: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(
@@ -98,11 +98,11 @@ pub fn compile_define<'a>(
   debug!("Processing define: {:?}", list);
   match &list[1] {
     Object::Symbol(_) => {
-      compile_define_obj(compiler, list, sym_tables)
+      compile_define_obj(compiler, list, env)
     }
     Object::List(_) => {
       compile_function_definition(
-        compiler, &list[1], &list[2], sym_tables,
+        compiler, &list[1], &list[2], env,
       )?;
       Ok(
         compiler
