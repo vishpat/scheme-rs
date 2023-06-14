@@ -4,11 +4,11 @@ use crate::compiler::function::{
   compile_function_call, compile_let,
 };
 use crate::compiler::number::compile_number;
+use crate::compiler::sym_table::SymTable;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
-use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::FloatValue;
@@ -129,8 +129,7 @@ pub fn compile_quote<'a>(
 
       let mut prev = compiler.types.node_null;
       for obj in l.iter().rev() {
-        let ir_obj =
-          compile_obj(compiler, obj, sym_table)?;
+        let ir_obj = compile_obj(compiler, obj, sym_table)?;
         let node_ptr =
           node_alloc(compiler, ir_obj.into_float_value())?;
 

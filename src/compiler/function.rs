@@ -1,11 +1,11 @@
 use crate::compiler::compile_obj;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
+use crate::compiler::sym_table::*;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
-use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::BasicValue;
@@ -135,8 +135,9 @@ pub fn compile_function_definition<'a>(
     "entry",
   );
   compiler.builder.position_at_end(entry);
-  let mut sym_table =
-    Rc::new(RefCell::new(SymTable::new(Some(sym_table.clone()))));
+  let mut sym_table = Rc::new(RefCell::new(SymTable::new(
+    Some(sym_table.clone()),
+  )));
 
   for (param_idx, p) in func_proto
     .into_function_value()
@@ -231,7 +232,8 @@ pub fn compile_function_definition<'a>(
   let val;
   match func_body {
     Object::List(l) => {
-      let list_val = compile_list(compiler, l, &mut sym_table)?;
+      let list_val =
+        compile_list(compiler, l, &mut sym_table)?;
       if list_val.is_float_value() {
         val =
           list_val.into_float_value().as_basic_value_enum();
@@ -474,8 +476,7 @@ pub fn compile_let<'a>(
     }
   };
 
-  let mut sym_table =
-    sym_table.clone();
+  let mut sym_table = sym_table.clone();
   for pair in pairs {
     let pair = match pair {
       Object::List(pair) => pair,

@@ -1,6 +1,6 @@
+use crate::compiler::sym_table::*;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
-use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::AddressSpace;

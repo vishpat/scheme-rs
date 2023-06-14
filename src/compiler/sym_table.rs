@@ -46,7 +46,6 @@ impl<'ctx> SymTable<'ctx> {
     &self,
     name: &str,
   ) -> Option<Pointer<'ctx>> {
-
     match self.symbols.get(name) {
       Some(value) => Some(value.clone()),
       None => self

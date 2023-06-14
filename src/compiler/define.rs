@@ -1,10 +1,10 @@
 use crate::compiler::function::compile_function_definition;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
+use crate::compiler::sym_table::*;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
-use crate::sym_table::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum::{
   FloatValue, PointerValue,
