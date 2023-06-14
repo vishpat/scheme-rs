@@ -46,13 +46,13 @@ impl<'ctx> SymTable<'ctx> {
     &self,
     name: &str,
   ) -> Option<Pointer<'ctx>> {
-    while let Some(table) = self.parent.as_ref() {
-      if let Some(ptr) = table.borrow().symbols.get(name) {
-        debug!("Found symbol {} val: {:?}", name, ptr);
-        return Some(ptr.clone());
-      }
-    }
 
-    None
+    match self.symbols.get(name) {
+      Some(value) => Some(value.clone()),
+      None => self
+        .parent
+        .as_ref()
+        .and_then(|o| o.borrow().get_symbol_value(name)),
+    }
   }
 }

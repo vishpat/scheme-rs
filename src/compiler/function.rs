@@ -474,8 +474,8 @@ pub fn compile_let<'a>(
     }
   };
 
-  let mut sym_tables =
-    Rc::new(RefCell::new(sym_table.clone()));
+  let mut sym_table =
+    sym_table.clone();
   for pair in pairs {
     let pair = match pair {
       Object::List(pair) => pair,
@@ -499,7 +499,7 @@ pub fn compile_let<'a>(
         return Err("Let: Expected value".to_string());
       }
     };
-    let val = compile_obj(compiler, val, sym_table)?;
+    let val = compile_obj(compiler, val, &mut sym_table)?;
     let ptr = compiler
       .builder
       .build_alloca(compiler.types.float_type, key);
@@ -522,7 +522,7 @@ pub fn compile_let<'a>(
 
   for item in list.iter().skip(2) {
     debug!("Processing item {:?}", item);
-    result = compile_obj(compiler, item, sym_table)?;
+    result = compile_obj(compiler, item, &mut sym_table)?;
   }
 
   Ok(result)
