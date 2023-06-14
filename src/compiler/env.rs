@@ -33,25 +33,18 @@ impl<'ctx> Env<'ctx> {
     }
   }
 
-  pub fn add_symbol_value(
-    &mut self,
-    name: &str,
-    ptr: Pointer<'ctx>,
-  ) {
+  pub fn add(&mut self, name: &str, ptr: Pointer<'ctx>) {
     debug!("Adding symbol {} val: {:?}", name, ptr);
     self.symbols.insert(name.to_string(), ptr);
   }
 
-  pub fn get_symbol_value(
-    &self,
-    name: &str,
-  ) -> Option<Pointer<'ctx>> {
+  pub fn get(&self, name: &str) -> Option<Pointer<'ctx>> {
     match self.symbols.get(name) {
       Some(value) => Some(value.clone()),
       None => self
         .parent
         .as_ref()
-        .and_then(|o| o.borrow().get_symbol_value(name)),
+        .and_then(|o| o.borrow().get(name)),
     }
   }
 }

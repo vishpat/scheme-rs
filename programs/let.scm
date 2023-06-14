@@ -1,7 +1,3 @@
-(define (area-of-circle r)
-  (let ((pi 3.14)) 
-    (* pi (* r r))
-  )
-)
-
-(print (area-of-circle 10))
+(let ((x 10) (y 20))
+  (let ((x 30) (z (+ x y)))
+    (print z)))

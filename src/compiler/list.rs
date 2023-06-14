@@ -1,10 +1,10 @@
 use crate::compiler::compile_obj;
 use crate::compiler::define::compile_define;
+use crate::compiler::env::Env;
 use crate::compiler::function::{
   compile_function_call, compile_let,
 };
 use crate::compiler::number::compile_number;
-use crate::compiler::env::Env;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
@@ -302,15 +302,13 @@ fn compile_if<'a>(
     .build_conditional_branch(cond_bool, then_bb, else_bb);
 
   compiler.builder.position_at_end(then_bb);
-  let then_val =
-    compile_obj(compiler, &list[2], env)?;
+  let then_val = compile_obj(compiler, &list[2], env)?;
 
   compiler.builder.build_unconditional_branch(merge_bb);
   then_bb = compiler.builder.get_insert_block().unwrap();
 
   compiler.builder.position_at_end(else_bb);
-  let else_val =
-    compile_obj(compiler, &list[3], env)?;
+  let else_val = compile_obj(compiler, &list[3], env)?;
 
   compiler.builder.build_unconditional_branch(merge_bb);
   else_bb = compiler.builder.get_insert_block().unwrap();
@@ -377,9 +375,7 @@ fn compile_binary_expr<'a>(
         }
       }
     }
-    Object::List(l) => {
-      compile_list(compiler, l, env)?
-    }
+    Object::List(l) => compile_list(compiler, l, env)?,
     _ => {
       return Err(format!(
         "Cannot compile lhs: {:?}",
@@ -404,9 +400,7 @@ fn compile_binary_expr<'a>(
         }
       }
     }
-    Object::List(l) => {
-      compile_list(compiler, l, env)?
-    }
+    Object::List(l) => compile_list(compiler, l, env)?,
     _ => {
       return Err(format!(
         "Cannot compile rhs: {:?}",
@@ -556,9 +550,7 @@ pub fn compile_list<'a>(
 
   match &list[0] {
     Object::Symbol(s) => match s.as_str() {
-      "define" => {
-        compile_define(compiler, list, envs)
-      }
+      "define" => compile_define(compiler, list, envs),
       "let" => compile_let(compiler, list, envs),
       "quote" => compile_quote(compiler, list, envs),
       "null?" => compile_null(compiler, list, envs),
@@ -570,15 +562,11 @@ pub fn compile_list<'a>(
       | "=" | "!=" | "mod" => {
         compile_binary_expr(s, compiler, list, envs)
       }
-      "apply" => compile_function_call(
-        compiler,
-        &list[1..],
-        envs,
-      ),
-      "print" => compile_print(compiler, list, envs),
-      _ => {
-        compile_function_call(compiler, list, envs)
+      "apply" => {
+        compile_function_call(compiler, &list[1..], envs)
       }
+      "print" => compile_print(compiler, list, envs),
+      _ => compile_function_call(compiler, list, envs),
     },
     _ => Err(format!("Cannot compile list 4.: {:?}", list)),
   }

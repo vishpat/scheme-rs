@@ -62,7 +62,7 @@ pub fn process_symbol<'ctx>(
     return Ok(f.as_any_value_enum());
   }
 
-  let val = env.borrow().get_symbol_value(sym);
+  let val = env.borrow().get(sym);
 
   debug!("Processing symbol {} val: {:?}", sym, val);
   let x = match val {

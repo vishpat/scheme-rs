@@ -1,7 +1,7 @@
 use crate::compiler::compile_obj;
+use crate::compiler::env::*;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
-use crate::compiler::env::*;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
@@ -135,9 +135,8 @@ pub fn compile_function_definition<'a>(
     "entry",
   );
   compiler.builder.position_at_end(entry);
-  let mut env = Rc::new(RefCell::new(Env::new(
-    Some(env.clone()),
-  )));
+  let mut env =
+    Rc::new(RefCell::new(Env::new(Some(env.clone()))));
 
   for (param_idx, p) in func_proto
     .into_function_value()
@@ -158,7 +157,7 @@ pub fn compile_function_definition<'a>(
         .build_alloca(compiler.types.float_type, &name);
       compiler.builder.build_store(ptr, p);
 
-      env.borrow_mut().add_symbol_value(
+      env.borrow_mut().add(
         &name,
         Pointer {
           ptr,
@@ -217,10 +216,9 @@ pub fn compile_function_definition<'a>(
       }
 
       compiler.builder.build_store(ptr, p);
-      env.borrow_mut().add_symbol_value(
-        name.as_str(),
-        Pointer { ptr, data_type: ty },
-      );
+      env
+        .borrow_mut()
+        .add(name.as_str(), Pointer { ptr, data_type: ty });
     } else {
       return Err(format!(
                 "Function Definition: Expected float or pointer, found: {:?}",
@@ -232,8 +230,7 @@ pub fn compile_function_definition<'a>(
   let val;
   match func_body {
     Object::List(l) => {
-      let list_val =
-        compile_list(compiler, l, &mut env)?;
+      let list_val = compile_list(compiler, l, &mut env)?;
       if list_val.is_float_value() {
         val =
           list_val.into_float_value().as_basic_value_enum();
@@ -339,8 +336,7 @@ pub fn compile_function_call<'a>(
 
   if func.is_none() {
     debug!("Function {} not found, so checking for function object", func_name);
-    let func_ptr =
-      envs.borrow_mut().get_symbol_value(func_name);
+    let func_ptr = envs.borrow_mut().get(func_name);
 
     if func_ptr.is_none() {
       return Err(format!(
@@ -508,7 +504,7 @@ pub fn compile_let<'a>(
       .builder
       .build_store(ptr, val.into_float_value());
 
-    env.borrow_mut().add_symbol_value(
+    env.borrow_mut().add(
       key,
       Pointer {
         ptr,

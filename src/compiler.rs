@@ -1,14 +1,14 @@
 mod define;
+mod env;
 mod function;
 mod list;
 mod number;
 mod object;
-mod env;
 mod symbol;
 mod tests;
 
-use crate::compiler::object::compile_obj;
 use crate::compiler::env::Env;
+use crate::compiler::object::compile_obj;
 use crate::object::*;
 use crate::parser::*;
 use inkwell::builder::Builder;

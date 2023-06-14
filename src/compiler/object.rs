@@ -19,9 +19,7 @@ pub fn compile_obj<'a>(
   debug!("Compiling Object: {:?}", obj);
   let val = match obj {
     Object::Number(n) => compile_number(compiler, n),
-    Object::List(list) => {
-      compile_list(compiler, list, env)
-    }
+    Object::List(list) => compile_list(compiler, list, env),
     Object::Symbol(s) => {
       let val = process_symbol(compiler, s, env)?;
       match val {

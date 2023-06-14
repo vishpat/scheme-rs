@@ -1,7 +1,7 @@
+use crate::compiler::env::*;
 use crate::compiler::function::compile_function_definition;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
-use crate::compiler::env::*;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
@@ -65,7 +65,7 @@ pub fn compile_define_obj<'a>(
         p.get_type(),
         ptr
       );
-      env.borrow_mut().add_symbol_value(
+      env.borrow_mut().add(
         name,
         Pointer {
           ptr,
