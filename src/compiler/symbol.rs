@@ -1,4 +1,4 @@
-use crate::compiler::sym_table::*;
+use crate::compiler::env::*;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use inkwell::values::AnyValue;
@@ -27,7 +27,7 @@ fn check_global_variable<'ctx>(
 pub fn process_symbol<'ctx>(
   compiler: &'ctx Compiler,
   sym: &str,
-  sym_table: &mut Rc<RefCell<SymTable<'ctx>>>,
+  sym_table: &mut Rc<RefCell<Env<'ctx>>>,
 ) -> CompileResult<'ctx> {
   match sym {
     "#t" => {

@@ -4,7 +4,7 @@ use crate::compiler::function::{
   compile_function_call, compile_let,
 };
 use crate::compiler::number::compile_number;
-use crate::compiler::sym_table::SymTable;
+use crate::compiler::env::Env;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
@@ -109,7 +109,7 @@ fn node_next<'a>(
 pub fn compile_quote<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -149,7 +149,7 @@ pub fn compile_quote<'a>(
 pub fn compile_cons<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(
@@ -213,7 +213,7 @@ pub fn compile_cons<'a>(
 pub fn compile_car<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -242,7 +242,7 @@ pub fn compile_car<'a>(
 pub fn compile_cdr<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -271,7 +271,7 @@ pub fn compile_cdr<'a>(
 fn compile_if<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 4 {
     return Err(format!(
@@ -352,7 +352,7 @@ fn compile_binary_expr<'a>(
   binary_op: &str,
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(
@@ -473,7 +473,7 @@ fn compile_binary_expr<'a>(
 pub fn compile_null<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -504,7 +504,7 @@ pub fn compile_null<'a>(
 fn compile_print<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 2 {
     return Err(format!(
@@ -546,7 +546,7 @@ fn compile_print<'a>(
 pub fn compile_list<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_tables: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_tables: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.is_empty() {
     return Err("Cannot compile empty list".to_string());

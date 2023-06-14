@@ -3,7 +3,7 @@ use crate::compiler::number::compile_number;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
-use crate::compiler::SymTable;
+use crate::compiler::Env;
 use crate::object::*;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
@@ -14,7 +14,7 @@ use std::rc::Rc;
 pub fn compile_obj<'a>(
   compiler: &'a Compiler,
   obj: &'a Object,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   debug!("Compiling Object: {:?}", obj);
   let val = match obj {

@@ -1,7 +1,7 @@
 use crate::compiler::function::compile_function_definition;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
-use crate::compiler::sym_table::*;
+use crate::compiler::env::*;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
 use crate::object::*;
@@ -17,7 +17,7 @@ use std::rc::Rc;
 pub fn compile_define_obj<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(
@@ -87,7 +87,7 @@ pub fn compile_define_obj<'a>(
 pub fn compile_define<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(

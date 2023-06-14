@@ -18,14 +18,14 @@ pub struct Pointer<'ctx> {
   pub data_type: DataType,
 }
 
-pub struct SymTable<'ctx> {
-  parent: Option<Rc<RefCell<SymTable<'ctx>>>>,
+pub struct Env<'ctx> {
+  parent: Option<Rc<RefCell<Env<'ctx>>>>,
   symbols: HashMap<String, Pointer<'ctx>>,
 }
 
-impl<'ctx> SymTable<'ctx> {
+impl<'ctx> Env<'ctx> {
   pub fn new(
-    parent: Option<Rc<RefCell<SymTable<'ctx>>>>,
+    parent: Option<Rc<RefCell<Env<'ctx>>>>,
   ) -> Self {
     Self {
       parent,

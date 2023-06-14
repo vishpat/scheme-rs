@@ -1,7 +1,7 @@
 use crate::compiler::compile_obj;
 use crate::compiler::list::compile_list;
 use crate::compiler::number::compile_number;
-use crate::compiler::sym_table::*;
+use crate::compiler::env::*;
 use crate::compiler::symbol::process_symbol;
 use crate::compiler::CompileResult;
 use crate::compiler::Compiler;
@@ -109,7 +109,7 @@ pub fn compile_function_definition<'a>(
   compiler: &'a Compiler,
   func_proto: &'a Object,
   func_body: &'a Object,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> Result<FloatValue<'a>, String> {
   debug!("Compiling function prototype: {:?}", func_proto);
 
@@ -135,7 +135,7 @@ pub fn compile_function_definition<'a>(
     "entry",
   );
   compiler.builder.position_at_end(entry);
-  let mut sym_table = Rc::new(RefCell::new(SymTable::new(
+  let mut sym_table = Rc::new(RefCell::new(Env::new(
     Some(sym_table.clone()),
   )));
 
@@ -275,7 +275,7 @@ pub fn compile_function_definition<'a>(
 pub fn compile_function_call<'a>(
   compiler: &'a Compiler,
   list: &'a [Object],
-  sym_tables: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_tables: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   let func_name = match &list[0] {
     Object::Symbol(s) => s,
@@ -465,7 +465,7 @@ pub fn compile_function_call<'a>(
 pub fn compile_let<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
+  sym_table: &mut Rc<RefCell<Env<'a>>>,
 ) -> CompileResult<'a> {
   let pairs = match list.get(1) {
     Some(Object::List(pairs)) => pairs,
