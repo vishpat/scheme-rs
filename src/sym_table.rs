@@ -1,8 +1,8 @@
+use inkwell::values::PointerValue;
+use log::debug;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use inkwell::values::PointerValue;
-use log::debug;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DataType {
@@ -24,9 +24,11 @@ pub struct SymTable<'ctx> {
 }
 
 impl<'ctx> SymTable<'ctx> {
-  pub fn new(parent: Option<Rc<RefCell<SymTable<'ctx>>>>) -> Self {
+  pub fn new(
+    parent: Option<Rc<RefCell<SymTable<'ctx>>>>,
+  ) -> Self {
     Self {
-      parent: parent,
+      parent,
       symbols: HashMap::new(),
     }
   }
@@ -49,7 +51,7 @@ impl<'ctx> SymTable<'ctx> {
         debug!("Found symbol {} val: {:?}", name, ptr);
         return Some(ptr.clone());
       }
-    } 
+    }
 
     None
   }

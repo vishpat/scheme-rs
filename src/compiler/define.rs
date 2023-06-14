@@ -11,11 +11,13 @@ use inkwell::values::AnyValueEnum::{
 };
 use inkwell::AddressSpace;
 use log::debug;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub fn compile_define_obj<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut SymTable<'a>,
+  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(
@@ -63,7 +65,7 @@ pub fn compile_define_obj<'a>(
         p.get_type(),
         ptr
       );
-      sym_table.add_symbol_value(
+      sym_table.borrow_mut().add_symbol_value(
         name,
         Pointer {
           ptr,
@@ -85,7 +87,7 @@ pub fn compile_define_obj<'a>(
 pub fn compile_define<'a>(
   compiler: &'a Compiler,
   list: &'a Vec<Object>,
-  sym_table: &mut SymTable<'a>,
+  sym_table: &mut Rc<RefCell<SymTable<'a>>>,
 ) -> CompileResult<'a> {
   if list.len() != 3 {
     return Err(format!(
