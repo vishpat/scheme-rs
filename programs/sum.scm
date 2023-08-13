@@ -12,4 +12,4 @@
 (define (sum lst:l) 
         (foldr add 0 lst))
 
-(sum (quote (1 2 3 4)))
+(print (sum (quote (1 2 3 4))))

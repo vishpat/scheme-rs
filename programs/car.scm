@@ -1,1 +1,1 @@
-(car (quote (2 3 4)))
+(print (car (quote (2 3 4))))

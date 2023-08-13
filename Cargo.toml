@@ -1,11 +1,11 @@
 [package]
-name = "lisp-rs"
+name = "scheme-rs"
 version = "0.0.1"
 edition = "2021"
 license = "MIT"
-homepage = "https://vishpat.github.io/lisp-rs"
-repository = "https://github.com/vishpat/lisp-rs"
-documentation = "https://vishpat.github.io/lisp-rs"
+homepage = "https://vishpat.github.io/scheme-rs"
+repository = "https://github.com/vishpat/scheme-rs"
+documentation = "https://vishpat.github.io/scheme-rs"
 description = """
 Lisp interpreter in Rust
 """

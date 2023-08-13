@@ -1,12 +1,12 @@
 (define (add x y) 
        (+ x y))
 
-(define (foldr func end lst)
+(define (foldr func:f2 end lst:l)
         (if (null? lst)
             end
             (func (car lst) (foldr func end (cdr lst))))) 
 
-(define (sum lst)
-        (foldr add 0 lst))
+(define (sum lst:l) 
+    (foldr add 0 lst))
 
-(sum (quote (1 2 3 4)))
+(print  (sum (quote (1 2 3 4 5)))) 

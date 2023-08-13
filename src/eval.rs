@@ -573,6 +573,21 @@ fn eval_obj_keyword(
   eval_obj(&parameter, env)
 }
 
+fn eval_print(
+  obj: &[Object],
+  env: &mut Rc<RefCell<Env<Object>>>,
+) -> Result<Object, String> {
+  if obj.len() != 2 {
+    return Err(
+      "Invalid number of arguments for eval".to_string(),
+    );
+  }
+
+  let parameter = eval_obj(&obj[1], env)?;
+  println!("{:?}", parameter);
+  Ok(Object::Void)
+}
+
 fn eval_list(
   list: &Vec<Object>,
   env: &mut Rc<RefCell<Env<Object>>>,
@@ -610,6 +625,7 @@ fn eval_list(
       "cond" => eval_cond(list, env),
       "let" => eval_let(list, env),
       "eval" => eval_obj_keyword(list, env),
+      "print" => eval_print(list, env),
       _ => eval_function_call(s, list, env),
     },
     _ => Err(format!("Invalid list head {:?}", head)),
