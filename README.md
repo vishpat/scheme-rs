@@ -5,7 +5,7 @@ A simple interperter + compiler in Rust using the [LLVM](https://llvm.org/) tool
 Note: The compiler requires type hints in case of list and function object parameters or if the function returns a list. The interpreter ignores these type hints.
 
 ## Build
-To build the compiler you will need the LLVM toolkit installed. The current version of the compiler uses LLVM 15.
+To build the compiler you will need the LLVM toolkit installed. The current version of the compiler uses LLVM 15. It's best to use devcontainers to build and try out the compiler.
 
 ```bash
 cargo build
