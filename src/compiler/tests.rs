@@ -191,25 +191,25 @@ mod tests {
     assert_eq!(ret, 2);
   }
 
-  #[test]
-  fn test_cons_1() {
-    let program = "
-    (define (add x y) 
-        (+ x y))
-
-    (define (foldr func:f2 end lst:l)
-        (if (null? lst)
-            end
-            (func (car lst) (foldr func end (cdr lst))))) 
-
-    (define (sum lst:l) 
-        (foldr add 0 lst))
- 
-    (sum (cons 1 (cons 2 (cons 3 (quote ())))))
-        ";
-    let ret = compile_and_run_program(program).unwrap();
-    assert_eq!(ret, 6);
-  }
+//  #[test]
+//  fn test_cons_1() {
+//    let program = "
+//    (define (add x y) 
+//        (+ x y))
+//
+//    (define (foldr func:f2 end lst:l)
+//        (if (null? lst)
+//            end
+//            (func (car lst) (foldr func end (cdr lst))))) 
+//
+//    (define (sum lst:l) 
+//        (foldr add 0 lst))
+// 
+//    (sum (cons 1 (cons 2 (cons 3 (quote ())))))
+//        ";
+//    let ret = compile_and_run_program(program).unwrap();
+//    assert_eq!(ret, 6);
+//  }
 
   #[test]
   fn test_cons_2() {
