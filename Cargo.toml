@@ -7,7 +7,7 @@ homepage = "https://vishpat.github.io/scheme-rs"
 repository = "https://github.com/vishpat/scheme-rs"
 documentation = "https://vishpat.github.io/scheme-rs"
 description = """
-Lisp interpreter in Rust
+Lisp interpreter + compiler in Rust
 """
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
